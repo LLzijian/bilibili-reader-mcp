@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import qrcode from "qrcode-generator";
 
 export async function openBrowserQr(url: string): Promise<() => Promise<void>> {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "bilibili-study-qr-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "bilibili-reader-qr-"));
   const file = path.join(directory, "login.html");
   const cleanup = async () => { await fs.rm(file, { force: true }); await fs.rmdir(directory); };
   try {

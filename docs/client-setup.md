@@ -7,7 +7,7 @@
 支持 stdio 的客户端使用本机 Node.js，参数为构建后的 dist/index.js 绝对路径：
 
 ~~~json
-{"mcpServers":{"bilibili-study":{"command":"node","args":["/absolute/path/to/bilibili-study-mcp/dist/index.js"]}}}
+{"mcpServers":{"bilibili-reader":{"command":"node","args":["/absolute/path/to/bilibili-reader-mcp/dist/index.js"]}}}
 ~~~
 
 支持 MCP 图片内容的客户端可以实际查看 get_video_frames 返回的画面；支持 prompts 的客户端可以选择 study_video。只支持文字的客户端可读取字幕，但无法检查画面内容。

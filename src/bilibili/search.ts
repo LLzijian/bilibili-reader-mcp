@@ -38,7 +38,7 @@ type UnknownRecord = Record<string, unknown>;
 
 function createCredentialError(): BilibiliAPIError {
   return new BilibiliAPIError(
-    'Current Bilibili credentials are expired or not logged in. Run "bilibili-study-mcp config", then "bilibili-study-mcp check", or update environment variables.',
+    'Current Bilibili credentials are expired or not logged in. Run "bilibili-reader-mcp config", then "bilibili-reader-mcp check", or update environment variables.',
     "COOKIE_EXPIRED",
   );
 }

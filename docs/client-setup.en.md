@@ -5,7 +5,7 @@ Run this fork from source; no npm release is available yet. Follow the [README](
 Configure a stdio MCP client with Node.js and the absolute path to dist/index.js:
 
 ~~~json
-{"mcpServers":{"bilibili-study":{"command":"node","args":["/absolute/path/to/bilibili-study-mcp/dist/index.js"]}}}
+{"mcpServers":{"bilibili-reader":{"command":"node","args":["/absolute/path/to/bilibili-reader-mcp/dist/index.js"]}}}
 ~~~
 
 A client supporting MCP image content can inspect get_video_frames output. Clients supporting prompts can select study_video. Text-only clients can read transcripts but cannot inspect frames.

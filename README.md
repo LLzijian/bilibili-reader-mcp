@@ -1,6 +1,6 @@
-# Bilibili Study MCP
+# Bilibili Reader MCP · B 站视频阅读器
 
-让 agent 结合**完整字幕与关键画面**阅读 B 站讲座、课程和教学视频，整理带时间链接的文字大纲或学习报告。
+让 agent 结合**完整字幕与关键画面**读取 B 站视频，支持本地语音转写与评论读取。可用于学习笔记、课程大纲、内容分析和视频复盘。
 
 基于 [XZXZZX-Ai/bilibili-mcp](https://github.com/XZXZZX-Ai/bilibili-mcp) 的 Apache-2.0 开源 fork，保留原作者署名与许可证。
 
@@ -14,20 +14,22 @@
 - 保留视频信息、章节、搜索、创作者内容和评论读取；移除个人收藏夹功能。
 - 提供 study_video MCP prompt 与可选学习技能。报告由调用方 agent 结合文字和图像整理，服务器不绑定额外的云端模型。
 
+原有 bilibili-study-mcp 和 bilibili-mcp 命令继续作为兼容别名；现有登录、模型配置和 MCP 工具名保持兼容。
+
 ## 从源码使用
 
 需要 Node.js 20+。画面读取另需 FFmpeg：ffmpeg 在 PATH 中，或设置 BILIBILI_FFMPEG_PATH 为可执行文件绝对路径。仅使用字幕和评论无需 FFmpeg。
 
 ~~~sh
-git clone https://github.com/LLzijian/bilibili-study-mcp.git
-cd bilibili-study-mcp
+git clone https://github.com/LLzijian/bilibili-reader-mcp.git
+cd bilibili-reader-mcp
 npm ci
 npm run build
 node dist/cli.js setup
 node dist/cli.js doctor --json
 ~~~
 
-当前从 GitHub 源码运行，尚未发布 npm 包。可选 npm link，在本机提供 bilibili-study-mcp 命令。setup 登录后共用 ~/.bilibili-mcp/ 下的凭证，Cookie 不进入仓库或报告。
+当前从 GitHub 源码运行，尚未发布 npm 包。可选 npm link，在本机提供 bilibili-reader-mcp 命令。setup 登录后共用 ~/.bilibili-mcp/ 下的凭证，Cookie 不进入仓库或报告。
 
 Windows 终端二维码显示异常时，在 PowerShell 中先运行：
 
@@ -41,7 +43,7 @@ node dist/cli.js setup
 在客户端的 MCP 配置中添加，路径替换为你的本机绝对路径：
 
 ~~~json
-{"mcpServers":{"bilibili-study":{"command":"node","args":["/absolute/path/to/bilibili-study-mcp/dist/index.js"]}}}
+{"mcpServers":{"bilibili-reader":{"command":"node","args":["/absolute/path/to/bilibili-reader-mcp/dist/index.js"]}}}
 ~~~
 
 已有模型按 [本地转写配置](docs/local-transcriber.md) 设置 BILIBILI_TRANSCRIBER_CONFIG，配置后重新加载 MCP 客户端。

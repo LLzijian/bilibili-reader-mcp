@@ -159,12 +159,12 @@ export function buildStructuredErrorPayload(
         en: "Local ASR is not ready.",
         zh: "本地 ASR 尚未就绪。",
         stepsEn: [
-          "Run `bilibili-study-mcp setup` outside the MCP call.",
-          "Inspect `bilibili-study-mcp doctor --json` before retrying.",
+          "Run `bilibili-reader-mcp setup` outside the MCP call.",
+          "Inspect `bilibili-reader-mcp doctor --json` before retrying.",
         ],
         stepsZh: [
-          "请在 MCP 调用之外运行 `bilibili-study-mcp setup`。",
-          "重试前请检查 `bilibili-study-mcp doctor --json`。",
+          "请在 MCP 调用之外运行 `bilibili-reader-mcp setup`。",
+          "重试前请检查 `bilibili-reader-mcp doctor --json`。",
         ],
       },
       ASR_AUDIO_UNAVAILABLE: {

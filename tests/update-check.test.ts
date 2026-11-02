@@ -20,7 +20,7 @@ describe("package update guidance", () => {
   it("returns source checkout config without suggesting an unpublished npm install", async () => {
     const result = await buildPackageUpdateInfo(mockRegistryVersion("9.9.9"));
 
-    expect(result.package_name).toBe("@llzijian/bilibili-study-mcp");
+    expect(result.package_name).toBe("@llzijian/bilibili-reader-mcp");
     expect(result.latest_version).toBe("9.9.9");
     expect(result.update_available).toBe(true);
     expect(result.recommended_mcp_config.command).toBe("node");

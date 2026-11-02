@@ -944,7 +944,7 @@ export async function transcribeVideoPart(
       if (state.kind !== "ready") {
         throw new AsrError(
           "ASR_NOT_READY",
-          "Local ASR is not ready. Run `bilibili-study-mcp setup`, then inspect `doctor --json`.",
+          "Local ASR is not ready. Run `bilibili-reader-mcp setup`, then inspect `doctor --json`.",
         );
       }
       executionProfile = state.executionProfile !== undefined &&
