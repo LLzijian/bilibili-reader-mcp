@@ -1,3 +1,5 @@
+vi.mock("../src/asr/local-transcriber.js", () => ({ readLocalTranscriber: () => undefined }));
+
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setupAuthentication, setupCredentials } from "../src/cli.js";
 import { QrLoginError } from "../src/bilibili/qr-login.js";

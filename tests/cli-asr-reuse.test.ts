@@ -1,3 +1,5 @@
+vi.mock("../src/asr/local-transcriber.js", () => ({ readLocalTranscriber: () => undefined }));
+
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setupCredentials } from "../src/cli.js";
 import { readAsrState, type AsrState } from "../src/asr/state.js";
