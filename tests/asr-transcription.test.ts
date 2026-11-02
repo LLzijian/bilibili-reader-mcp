@@ -23,6 +23,8 @@ import type { PlaybackAudioCandidate } from "../src/bilibili/playback.js";
 import { FakeIpDnsError } from "../src/security/pinned-https.js";
 import { AsrError } from "../src/utils/errors.js";
 
+vi.mock("../src/asr/local-transcriber.js", () => ({ readLocalTranscriber: () => undefined }));
+
 const CPU_PROFILE = { device: "cpu", computeType: "int8" } as const;
 const CUDA_PROFILE = { device: "cuda", computeType: "float16" } as const;
 
@@ -1058,5 +1060,29 @@ describe("legacy ASR device migration", () => {
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
     expect(verifyReadiness).toHaveBeenCalledOnce();
     expect(writeState).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("shared video download limits",()=>{
+  it("accepts only the registered video filename and keeps credentials out of media headers",async()=>{
+    const dir=await createAsrTempDir(ASR_TEMP_PREFIX);tempDirs.push(dir);
+    const file=path.join(dir,"video.mp4");
+    const fetch=vi.fn(async()=>new Response("video",{headers:{"content-type":"video/mp4"}}));
+    await downloadPlaybackAudio([candidate],file,fetch,1000,undefined,512*1024*1024,"video");
+    expect(await fs.promises.readFile(file,"utf8")).toBe("video");
+    expect(new Headers(fetch.mock.calls[0][1].headers).has("Cookie")).toBe(false);
+  });
+  it("rejects a video budget above 512 MiB before network access",async()=>{
+    const dir=await createAsrTempDir(ASR_TEMP_PREFIX);tempDirs.push(dir);
+    const fetch=vi.fn();
+    await expect(downloadPlaybackAudio([candidate],path.join(dir,"video.mp4"),fetch,1000,undefined,513*1024*1024,"video")).rejects.toThrow(/budget/);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("enforces the streaming budget for video as well as audio",async()=>{
+    const dir=await createAsrTempDir(ASR_TEMP_PREFIX);tempDirs.push(dir);
+    const fetch=vi.fn(async()=>new Response("oversized",{headers:{"content-type":"video/mp4"}}));
+    await expect(downloadPlaybackAudio([candidate],path.join(dir,"video.mp4"),fetch,1000,undefined,3,"video")).rejects.toHaveProperty("code","ASR_LIMIT_EXCEEDED");
+    expect(fs.existsSync(path.join(dir,"video.mp4"))).toBe(false);
   });
 });

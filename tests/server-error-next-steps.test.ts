@@ -7,7 +7,6 @@ const mockGetVideoTranscriptData = vi.fn();
 const mockGetVideoCommentsData = vi.fn();
 const mockSearchBilibiliVideos = vi.fn();
 const mockSearchBilibiliCreators = vi.fn();
-const mockListBilibiliFavoriteVideos = vi.fn();
 const mockGetBilibiliCreatorContent = vi.fn();
 
 vi.mock("../src/bilibili/subtitle.js", () => ({
@@ -31,11 +30,6 @@ vi.mock("../src/bilibili/search.js", () => ({
     mockSearchBilibiliVideos(...args),
   searchBilibiliCreators: (...args: unknown[]) =>
     mockSearchBilibiliCreators(...args),
-}));
-
-vi.mock("../src/bilibili/favorites.js", () => ({
-  listBilibiliFavoriteVideos: (...args: unknown[]) =>
-    mockListBilibiliFavoriteVideos(...args),
 }));
 
 vi.mock("../src/bilibili/creator-content.js", () => ({
@@ -123,11 +117,11 @@ describe("generic MCP error credential next_steps", () => {
       userActionRequired: true,
     });
     expect(payload.next_steps).toContain(
-      "Run: npx -y @xzxzzx/bilibili-mcp@latest config",
+      "Run: bilibili-study-mcp config",
     );
     expect(payload.next_steps_en).toEqual(payload.next_steps);
     expect(payload.next_steps_zh.join(" ")).toContain(
-      "npx -y @xzxzzx/bilibili-mcp@latest config",
+      "bilibili-study-mcp config",
     );
   });
 
@@ -155,7 +149,7 @@ describe("generic MCP error credential next_steps", () => {
       userActionRequired: true,
     });
     expect(payload.next_steps_en.join(" ")).toContain(
-      "npx -y @xzxzzx/bilibili-mcp@latest config",
+      "bilibili-study-mcp config",
     );
     expect(JSON.stringify(payload)).not.toContain("configured");
   });
@@ -184,7 +178,7 @@ describe("generic MCP error credential next_steps", () => {
       userActionRequired: true,
     });
     expect(payload.next_steps_en.join(" ")).toContain(
-      "npx -y @xzxzzx/bilibili-mcp@latest config",
+      "bilibili-study-mcp config",
     );
     expect(JSON.stringify(payload)).not.toContain("configured");
   });
@@ -214,35 +208,6 @@ describe("generic MCP error credential next_steps", () => {
     });
   });
 
-  it("returns safe credential recovery guidance for authenticated favorites discovery", async () => {
-    mockListBilibiliFavoriteVideos.mockRejectedValueOnce(
-      new BilibiliAPIError("Cookie expired", "COOKIE_EXPIRED"),
-    );
-
-    const handler = getCallToolHandler();
-    const response = await handler({
-      method: "tools/call",
-      jsonrpc: "2.0",
-      id: 4,
-      params: {
-        name: "list_bilibili_favorite_videos",
-        arguments: {},
-      },
-    });
-    const payload = JSON.parse(response.content[0].text);
-
-    expect(response.isError).toBe(true);
-    expect(response).not.toHaveProperty("structuredContent");
-    expectStructuredError(payload, "COOKIE_EXPIRED", {
-      retryable: false,
-      userActionRequired: true,
-    });
-    expect(payload.next_steps_en.join(" ")).toContain(
-      "npx -y @xzxzzx/bilibili-mcp@latest config",
-    );
-    expect(JSON.stringify(payload)).not.toMatch(/SESSDATA|bili_jct|DedeUserID/i);
-  });
-
   it("returns safe credential recovery guidance for authenticated creator content", async () => {
     mockGetBilibiliCreatorContent.mockRejectedValueOnce(
       new BilibiliAPIError("Cookie expired", "COOKIE_EXPIRED"),
@@ -267,35 +232,9 @@ describe("generic MCP error credential next_steps", () => {
       userActionRequired: true,
     });
     expect(payload.next_steps_en.join(" ")).toContain(
-      "npx -y @xzxzzx/bilibili-mcp@latest config",
+      "bilibili-study-mcp config",
     );
     expect(JSON.stringify(payload)).not.toMatch(/SESSDATA|bili_jct|DedeUserID/i);
-  });
-
-  it("returns resource-generic access guidance for Favorites access denial", async () => {
-    mockListBilibiliFavoriteVideos.mockRejectedValueOnce(
-      new BilibiliAPIError("Access denied", "ACCESS_DENIED"),
-    );
-
-    const handler = getCallToolHandler();
-    const response = await handler({
-      method: "tools/call",
-      jsonrpc: "2.0",
-      id: 5,
-      params: {
-        name: "list_bilibili_favorite_videos",
-        arguments: {},
-      },
-    });
-    const payload = JSON.parse(response.content[0].text);
-
-    expect(response.isError).toBe(true);
-    expectStructuredError(payload, "ACCESS_DENIED", {
-      retryable: false,
-      userActionRequired: true,
-    });
-    expect(payload.next_steps_en.join(" ")).toContain("resource");
-    expect(payload.next_steps_zh.join(" ")).toContain("资源");
   });
 
   it("adds bilingual next_steps when transcript subtitles are unavailable", async () => {

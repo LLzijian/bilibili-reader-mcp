@@ -12,7 +12,7 @@ const verifyWorkflow = fs.readFileSync(
 describe("Fake-IP Node compatibility gate", () => {
   it("defines the focused DNS, download aggregation, and MCP error suite", () => {
     expect(packageJson.scripts?.["test:fake-ip"]).toBe(
-      "vitest run tests/pinned-https.test.ts tests/asr-transcription.test.ts tests/server-error-next-steps.test.ts",
+      "vitest run tests/pinned-https.test.ts tests/asr-transcription.test.ts tests/server-error-next-steps.test.ts tests/media-dns.test.ts",
     );
   });
 

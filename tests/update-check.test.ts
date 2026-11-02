@@ -17,24 +17,18 @@ describe("package update guidance", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns @latest MCP config and manual update commands", async () => {
+  it("returns source checkout config without suggesting an unpublished npm install", async () => {
     const result = await buildPackageUpdateInfo(mockRegistryVersion("9.9.9"));
 
-    expect(result.package_name).toBe("@xzxzzx/bilibili-mcp");
+    expect(result.package_name).toBe("@llzijian/bilibili-study-mcp");
     expect(result.latest_version).toBe("9.9.9");
     expect(result.update_available).toBe(true);
-    expect(result.recommended_mcp_config).toEqual({
-      command: "npx",
-      args: ["-y", "@xzxzzx/bilibili-mcp@latest"],
-    });
-    expect(result.update_commands.global_update).toBe(
-      "npm install -g @xzxzzx/bilibili-mcp@latest",
-    );
-    expect(result.update_commands.npx_config).toBe(
-      "npx -y @xzxzzx/bilibili-mcp@latest config",
-    );
-    expect(result.notes_en.join(" ")).toContain("Use the @latest MCP config");
-    expect(result.notes_zh.join(" ")).toContain("建议在 MCP 配置中使用 @latest");
+    expect(result.recommended_mcp_config.command).toBe("node");
+    expect(result.recommended_mcp_config.args[0]).toMatch(/index\.js$/);
+    expect(result.update_commands.global_update).toContain("source checkout");
+    expect(result.update_commands.npx_config).toContain("cli.js");
+    expect(result.notes_en.join(" ")).toContain("no npm package is published");
+    expect(result.notes_zh.join(" ")).toContain("尚未发布 npm 包");
   });
 
   it("reports unknown registry state without throwing", async () => {

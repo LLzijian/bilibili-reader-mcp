@@ -231,11 +231,11 @@ export function validateContextSegments(value: unknown): void {
 }
 
 /**
- * 验证 Favorites Discovery 游标的公开 schema：
+ * 验证内容发现游标的公开 schema：
  * 字符串、长度 1-256、仅 base64url 字符。
- * 不解码 payload；由 favorites 模块在副作用前完成严格解码。
+ * 不解码 payload；由内容模块在副作用前完成严格解码。
  */
-export function validateFavoritesCursor(cursor: unknown): void {
+export function validateDiscoveryCursor(cursor: unknown): void {
   if (cursor === undefined) return;
   if (typeof cursor !== "string") {
     throw new ValidationError("cursor must be a string");
@@ -288,5 +288,5 @@ export function validateCreatorContentInput(
       );
     }
   }
-  validateFavoritesCursor(cursor);
+  validateDiscoveryCursor(cursor);
 }

@@ -159,12 +159,12 @@ export function buildStructuredErrorPayload(
         en: "Local ASR is not ready.",
         zh: "本地 ASR 尚未就绪。",
         stepsEn: [
-          "Run `npx -y @xzxzzx/bilibili-mcp@latest setup` outside the MCP call.",
-          "Inspect `npx -y @xzxzzx/bilibili-mcp@latest doctor --json` before retrying.",
+          "Run `bilibili-study-mcp setup` outside the MCP call.",
+          "Inspect `bilibili-study-mcp doctor --json` before retrying.",
         ],
         stepsZh: [
-          "请在 MCP 调用之外运行 `npx -y @xzxzzx/bilibili-mcp@latest setup`。",
-          "重试前请检查 `npx -y @xzxzzx/bilibili-mcp@latest doctor --json`。",
+          "请在 MCP 调用之外运行 `bilibili-study-mcp setup`。",
+          "重试前请检查 `bilibili-study-mcp doctor --json`。",
         ],
       },
       ASR_AUDIO_UNAVAILABLE: {
@@ -184,6 +184,7 @@ export function buildStructuredErrorPayload(
           "Option 2: switch to `redir-host` or an equivalent real public IP DNS mode. This changes the proxy client's DNS behavior; apply and reload the change, then retry ASR.",
           "Option 3: leave the network unchanged and use Human Subtitle, Bilibili AI Subtitle, or the video description. Local ASR Transcript will be unavailable.",
           "The AI agent must list these choices and wait for the user's explicit choice. Do not automatically close TUN, edit the proxy config, use public DoH to bypass the user's DNS policy, or blindly retry with unchanged settings.",
+          "Option 4 (opt-in): with explicit user consent, set BILIBILI_MEDIA_DNS=cloudflare for this MCP service only. It queries public media IPv4 addresses without Cookies and preserves all address checks.",
           "Do not allowlist 198.18.0.0/15 in the MCP server.",
         ],
         stepsZh: [
@@ -194,6 +195,7 @@ export function buildStructuredErrorPayload(
           "方案二：切换到 `redir-host` 或等效的真实公网 IP DNS 模式。这会改变代理客户端的 DNS 行为；应用并重新加载设置后，再重试 ASR。",
           "方案三：不改变网络，改用人工字幕、Bilibili AI 字幕或视频简介；但无法获得本地 ASR 转录。",
           "AI Agent 必须列出这些方案并等待用户明确选择。不要自动关闭 TUN、修改代理配置、使用公共 DoH 绕过用户的 DNS 策略，或在设置不变时盲目重试。",
+          "方案四（可选）：经用户明确同意，只为此 MCP 服务设置 BILIBILI_MEDIA_DNS=cloudflare。仅查询媒体公网 IPv4 地址，不发送 Cookie，继续保留地址校验。",
           "不要在 MCP 服务中放行 198.18.0.0/15。",
         ],
       },

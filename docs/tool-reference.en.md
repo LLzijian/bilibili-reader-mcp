@@ -11,7 +11,6 @@ This page preserves detailed behavior, parameters, examples, error contracts, an
 | Start from a topic without a video link | `search_bilibili_videos` | Up to 10 normal Video candidates with reusable BVIDs; no automatic subtitle or comment retrieval |
 | Start from a topic and want Creator candidates | `search_bilibili_creators` | Up to 10 Creator candidates with stable numeric `mid`; display names are fuzzy and never auto-selected |
 | Read a chosen creator's overview, video catalog, Collections, Series, or Dynamics | `get_bilibili_creator_content` | One live overview or bounded content page (at most 20 rows); follow `next_cursor`; no image download or automatic Video evidence fetch |
-| Start from my Bilibili Favorites | `list_bilibili_favorite_videos` | One bounded page of videos from the current account's created Favorite Folders (at most 20 rows); follow `next_cursor` until absent; no subtitles, comments, or downloads |
 | Summarize a video | `get_video_info` | Subtitles first; falls back to title, description, tags |
 | Get clean transcript text or locate keywords | `get_video_transcript` | Native subtitles first, explicit ASR fallback; supports timestamps, ranges, and keyword search |
 | See structured metadata | `get_video_metadata` | Title, author, duration, publish date, tags, stats, multi-Part listing |
@@ -97,27 +96,11 @@ This page preserves detailed behavior, parameters, examples, error contracts, an
 - Display names are fuzzy and non-unique: duplicate or near-duplicate names remain separate candidates in Bilibili's original order. The tool never selects one Creator and never crawls candidate content.
 - Requires configured, logged-in Bilibili Cookies; success returns formatted JSON text plus identical MCP `structuredContent`.
 
-### 8. Favorites Discovery (`list_bilibili_favorite_videos`)
-
-- Automatically discovers every created Favorite Folder of the currently logged-in account and walks Folder-by-Folder, page-by-page.
-- Each call returns at most one upstream resource page (fixed at 20 rows). `next_cursor` is an opaque, stateless, versioned base64url token that encodes only the next Folder ID and page number.
-- The cursor is strictly validated before any network request: type, length (1-256), charset (base64url only), JSON structure, supported version, positive safe-integer Folder ID, and positive safe-integer page.
-- Continuation rules: when the current Folder's `has_more=true`, the cursor points to the next page of the same Folder; when upstream returns an empty `medias` array (even if `has_more=true`) or when `has_more=false`, the cursor points to page 1 of the next Folder; the final Folder's terminal page omits `next_cursor`.
-- The same BVID in two Folders is returned once in each Folder context (Favorite Membership semantics); the MCP does not deduplicate across Folders.
-- `skipped_count` reports upstream rows that could not be safely normalized (for example, an invalid BVID or empty title); no replacement page is fetched.
-- Upstream `media_count` is Bilibili's reported count and may exceed the rows currently visible or callable; the response only promises the current upstream page.
-- Traversal is a best-effort read of Bilibili's live state, not a snapshot. Adding, removing, or moving memberships during continuation may change ordering or visible results.
-- No persistence, cache, download, transcript/comment/chapter/search fetch, or anonymous fallback.
-- Requires configured, logged-in Bilibili Cookies; success returns formatted JSON text plus identical MCP `structuredContent`.
-- Optional parameters:
-  - `cursor`: Opaque continuation token returned by the previous successful call. Omit on the first call.
-
 ### 9. Creator Content Discovery (`get_bilibili_creator_content`)
 
 - Starts from one caller-selected, validated Creator `mid` and reads Bilibili space-page-visible content currently live; `section` is one of:
   - `overview`: returns one byte-bounded live profile reading (`name`, `bio`, `avatar_url`, `level`, `video_count`, and `live_state`; `follower_count` appears only when the upstream provides a valid `fans` fact — it is never fabricated as 0). `video_count` prefers the upstream `acc/info` value; only when the upstream profile does not provide it is one bounded `arc/search` count probe allowed (`pn=1, ps=1, order=pubdate`) — the tool never invents a count.
   - `videos`: returns one page of the currently listable video catalog (at most 20 BVID metadata rows); `next_cursor` is an opaque, stateless, versioned base64url token encoding only the mid and the next page number.
-  - `collections` / `series`: without `container_id`, separately lists Collection or Series containers; with the container ID returned by that section, reads one bounded `members` page from only the selected container. The families remain distinct and never reuse multi-Part Video or Favorite Folder semantics.
   - `dynamics`: returns one Creator Dynamic page (at most 20 rows) with bounded text, image URL and available dimensions, referenced BVIDs, publication time, and an explicit original relationship for reposts. An ordinary feed entry remains a Dynamic when its browser URL uses `/opus/`; dedicated long-form article/Opus-body extraction is not provided.
 - The cursor is strictly validated before any network request and binds the requested mid and section plus either a positive safe-integer page/optional container ID or the opaque upstream Dynamic offset; a mismatch or out-of-range value returns `VALIDATION_ERROR` with no request sent.
 - `continuationProven` decides `next_cursor`: when `videos_total` exists and `page * 20 < videos_total`, the next page is returned; when the total is absent but the raw upstream row count is exactly 20, the next page is also returned, so one malformed row never truncates the traversal; emitting `page + 1` is guarded by a safe-integer check on `(page + 1) * 20`.
@@ -150,7 +133,6 @@ This page preserves detailed behavior, parameters, examples, error contracts, an
 - Comments (`get_video_comments`) may be incomplete, empty, or rate-limited without authentication.
 - Video discovery (`search_bilibili_videos`) requires configured, valid login credentials and never falls back to anonymous search.
 - Creator search (`search_bilibili_creators`) likewise requires configured, valid login credentials and never falls back to anonymous search.
-- Favorites discovery (`list_bilibili_favorite_videos`) must start from the currently logged-in account identity; it never falls back to anonymous access and never reads another user's public Favorites.
 - Creator content discovery (`get_bilibili_creator_content`) requires configured, valid login credentials; it never falls back to anonymous access, `access` is always `"unknown"`, and it never probes whether a resource is accessible.
 - Do not rely on cookie-less mode for reliable subtitle or comment access.
 
@@ -318,34 +300,6 @@ Parameters:
 - `limit` (optional): candidate Creator count, integer 1-10, default 5.
 
 Returns: `query` and `results[]` in Bilibili's original order. Each entry carries the stable numeric `mid` (positive safe integer, the only identity), `name`, `bio`, `avatar_url`, `follower_count`, `video_count`, `level`, and a locally derived `source_url`. A candidate is accepted only when `mid` is a positive safe integer and the bounded name is non-empty; malformed profile facts normalize to empty strings or non-negative integer zero. Duplicate or near-duplicate names remain separate candidates. Search requires valid logged-in credentials and never fetches candidate Videos, Dynamics, subtitles, comments, or other per-candidate details.
-
-### `list_bilibili_favorite_videos`
-
-**Best for**: letting an Agent start from your already-logged-in Bilibili account and read every created Favorite Folder. The MCP protocol stays paginated: each call returns at most one upstream page of 20 rows, and the Agent follows the returned `next_cursor` until it is absent. **Do not assume a single response contains the full account's Favorites.**
-
-Request (first call, omit `cursor`):
-
-```json
-{
-  "name": "list_bilibili_favorite_videos",
-  "arguments": {}
-}
-```
-
-Returns: `folders_total`, `folder` (current Folder `id`, `title`, `media_count`), `page`, `videos[]` (each with `bvid`, `title`, `author`, `duration_seconds`, `published_at`, `favorited_at`, `source_url`), `skipped_count`, and optional `next_cursor`. An account with no valid created Folders returns only `folders_total: 0`, `videos: []`, `skipped_count: 0`.
-
-Continuation:
-
-```json
-{
-  "name": "list_bilibili_favorite_videos",
-  "arguments": {
-    "cursor": "<next_cursor from the previous response>"
-  }
-}
-```
-
-> When upstream returns an empty `medias` page, even with `has_more=true`, the tool treats the current Folder as complete and jumps to page 1 of the next Folder, preventing a cursor loop. If the cursor's Folder no longer belongs to the current account (deleted or transferred), the call returns `VALIDATION_ERROR` and instructs the caller to restart without a cursor.
 
 ### `get_bilibili_creator_content`
 
@@ -594,3 +548,13 @@ All three numeric variables must be complete decimal positive safe integers. Emp
 All of the above environment variables are read at MCP server process startup. After changing them, restart the MCP client or reconnect the MCP server for the new values to take effect.
 
 ---
+
+## Frames and study workflow
+
+get_video_frames takes bvid_or_url, optional page, and timestamps (1–4 numeric seconds). Returns alternating timestamp/link text and image/jpeg MCP content. Requires FFmpeg; BILIBILI_FFMPEG_PATH can select an installed executable. Supports accessible AVC streams up to 1080p, 512 MiB and two hours. One video is cached for 30 minutes, output width up to 1280px, each JPEG up to 512 KiB.
+
+Use the study_video prompt with mode=outline or report for a transcript → selected frames → source-linked learning report workflow. Reports are written by the host agent, not an extra server-side LLM.
+
+Existing local ASR programs can be configured instead of installing faster-whisper: [local command protocol and MOSS example](local-transcriber.md).
+
+A fourth explicit choice is the tool-only opt-in BILIBILI_MEDIA_DNS=cloudflare. See [media network configuration](media-network.md); never enable it without the user’s choice.

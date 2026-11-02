@@ -28,14 +28,14 @@ export interface CredentialStatus {
 }
 
 const credentialNextStepsEn = [
-  "Run: npx -y @xzxzzx/bilibili-mcp@latest config",
-  "Then run: npx -y @xzxzzx/bilibili-mcp@latest check",
+  "Run: bilibili-study-mcp config",
+  "Then run: bilibili-study-mcp check",
   "Do not paste Cookie values into MCP client config files.",
 ];
 
 const credentialNextStepsZh = [
-  "运行：npx -y @xzxzzx/bilibili-mcp@latest config",
-  "然后运行：npx -y @xzxzzx/bilibili-mcp@latest check",
+  "运行：bilibili-study-mcp config",
+  "然后运行：bilibili-study-mcp check",
   "不要把 Cookie 值粘贴到 MCP 客户端配置文件中。",
 ];
 
@@ -60,8 +60,8 @@ export function buildCredentialSetupInstructions(): CredentialSetupInstructions 
     summary_zh:
       "为了稳定获取 Bilibili 字幕、转录和评论，请在 MCP 客户端配置之外配置 Cookie。",
     recommended_commands: [
-      "npx -y @xzxzzx/bilibili-mcp@latest config",
-      "npx -y @xzxzzx/bilibili-mcp@latest check",
+      "bilibili-study-mcp config",
+      "bilibili-study-mcp check",
     ],
     global_install_commands: [
       "bilibili-mcp config",

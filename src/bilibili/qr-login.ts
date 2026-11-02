@@ -1,4 +1,5 @@
 import qrcode from "qrcode-generator";
+import { openBrowserQr } from "./browser-qr.js";
 import type { BilibiliCredentials } from "../utils/credentials.js";
 import { parseBoundedJsonResponse } from "../utils/bounded-response.js";
 import { abortableDelay, linkAbortSignal, throwIfAborted } from "../security/operation-context.js";
@@ -149,7 +150,9 @@ async function request(url: string, signal: AbortSignal) {
 /** One anonymous, bounded attempt. Returns a candidate, never installs or saves it. */
 export async function loginWithQr(signal?: AbortSignal): Promise<BilibiliCredentials> {
   throwIfAborted(signal);
-  requireTerminal();
+  const browserMode = process.env.BILIBILI_QR_BROWSER === "1";
+  if (!browserMode) requireTerminal();
+  let closeBrowserQr: (() => Promise<void>) | undefined;
   const attempt = new AbortController();
   const unlink = linkAbortSignal(signal, attempt);
   const deadline = Date.now() + 180_000;
@@ -164,7 +167,10 @@ export async function loginWithQr(signal?: AbortSignal): Promise<BilibiliCredent
     if (url.protocol !== "https:" || url.hostname !== "account.bilibili.com" || url.port || url.username || url.password || url.hash || url.pathname !== "/h5/account-h5/auth/scan-web") {
       throw new QrLoginError("protocol");
     }
-    displayQr(url.href);
+    if (browserMode) {
+      closeBrowserQr = await openBrowserQr(url.href);
+      console.log("已在默认浏览器显示二维码，请使用手机 B站 App 扫码并确认。");
+    } else displayQr(url.href);
     let lastCode: number | undefined;
     while (true) {
       await abortableDelay(3000, attempt.signal);
@@ -185,5 +191,6 @@ export async function loginWithQr(signal?: AbortSignal): Promise<BilibiliCredent
     clearTimeout(timer);
     unlink();
     attempt.abort();
+    await closeBrowserQr?.();
   }
 }

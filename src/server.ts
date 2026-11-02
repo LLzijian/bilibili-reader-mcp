@@ -3,6 +3,8 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import fs from "fs";
 import { logger } from "./utils/logger.js";
@@ -13,6 +15,8 @@ import {
   toErrorTextContent,
 } from "./server/error-response.js";
 import { runWithOperationSignal } from "./security/operation-context.js";
+
+import { studyPrompt, buildStudyPrompt } from "./server/study-prompt.js";
 
 const packageJson = JSON.parse(
   fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")
@@ -27,6 +31,7 @@ export const server = new Server(
   {
     capabilities: {
       tools: {},
+      prompts: {},
     },
   }
 );
@@ -35,6 +40,12 @@ export const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: toolSchemas,
 }));
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [studyPrompt] }));
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  if (request.params.name !== studyPrompt.name) throw new Error("Unknown prompt");
+  return buildStudyPrompt(request.params.arguments);
+});
 
 // 注册工具调用处理器
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {

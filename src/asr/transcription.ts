@@ -1,8 +1,9 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { config } from "../config.js";
+import { readLocalTranscriber, type LocalTranscriberConfig } from "./local-transcriber.js";
 import {
   getPlaybackAudioSet,
   MAX_ASR_DURATION_SECONDS,
@@ -140,6 +141,8 @@ type FetchFn = (
 ) => Promise<Response>;
 
 export interface AsrTranscriptionDependencies {
+  getLocalTranscriber?: () => LocalTranscriberConfig | undefined;
+  runLocalRuntime?: typeof runAsrCommand;
   getPlayback?: (
     bvid: string,
     cid: number,
@@ -253,7 +256,7 @@ async function readBoundedBody(
     if (expected > aggregateBudget.remainingBytes) {
       throw new AsrError(
         "ASR_LIMIT_EXCEEDED",
-        "The temporary audio exceeds the 128 MiB ASR limit.",
+        "The temporary media exceeds its download byte budget.",
       );
     }
   }
@@ -288,7 +291,7 @@ async function readBoundedBody(
         await reader.cancel();
         throw new AsrError(
           "ASR_LIMIT_EXCEEDED",
-          "The temporary audio exceeds the 128 MiB ASR limit.",
+          "The temporary media exceeds its download byte budget.",
         );
       }
       await handle.writeFile(value);
@@ -320,7 +323,7 @@ async function fetchAudioResponse(
         headers: {
           "User-Agent": config.userAgent,
           Referer: config.referer,
-          Accept: "audio/mp4,audio/*;q=0.9,application/octet-stream;q=0.5",
+          Accept: "video/mp4,audio/mp4,application/octet-stream;q=0.5",
         },
         redirect: "manual",
         signal,
@@ -377,6 +380,7 @@ export async function downloadPlaybackAudio(
   timeoutMs: number = ASR_DOWNLOAD_TIMEOUT_MS,
   callerSignal?: AbortSignal,
   maxBytes: number = MAX_ASR_AUDIO_BYTES,
+  mediaKind: "audio" | "video" = "audio",
 ): Promise<void> {
   const signal = getOperationSignal(callerSignal);
   throwIfAborted(signal);
@@ -386,7 +390,7 @@ export async function downloadPlaybackAudio(
     path.dirname(requestDir) !== path.resolve(os.tmpdir()) ||
     !isAsrRequestTempDir(requestDir) ||
     !createdAsrTempDirs.has(requestDir) ||
-    path.basename(target) !== "audio.m4a"
+    path.basename(target) !== (mediaKind === "video" ? "video.mp4" : "audio.m4a")
   ) {
     throw new AsrError(
       "ASR_TRANSCRIPTION_FAILED",
@@ -397,7 +401,7 @@ export async function downloadPlaybackAudio(
   if (
     !Number.isSafeInteger(maxBytes) ||
     maxBytes <= 0 ||
-    maxBytes > MAX_ASR_AUDIO_BYTES
+    maxBytes > (mediaKind === "video" ? 512 * 1024 * 1024 : MAX_ASR_AUDIO_BYTES)
   ) {
     throw new AsrError(
       "ASR_TRANSCRIPTION_FAILED",
@@ -586,6 +590,12 @@ function killManagedRuntimeTree(child: ReturnType<typeof spawn>): void {
       // Fall through to the direct child.
     }
   }
+  if (process.platform === "win32" && child.pid !== undefined) {
+    const root = process.env.SystemRoot ?? process.env.SYSTEMROOT ?? "C:/Windows";
+    spawnSync(path.join(root, "System32", "taskkill.exe"), ["/PID", String(child.pid), "/T", "/F"], {
+      shell: false, windowsHide: true, stdio: "ignore", timeout: 5000,
+    });
+  }
   child.kill("SIGKILL");
 }
 
@@ -607,6 +617,15 @@ export async function runManagedAsrRuntime(
   if (executionProfile === undefined) {
     throw new AsrError("ASR_NOT_READY", "The ASR execution profile is not allowlisted.");
   }
+  return runAsrCommand(pythonExecutable, ["-I", "-c", PYTHON_SCRIPT, modelPath, audioPath,
+    executionProfile.device, executionProfile.computeType], options);
+}
+
+export async function runAsrCommand(
+  executable: string,
+  args: string[],
+  options: { spawnFn?: typeof spawn; timeoutMs?: number; signal?: AbortSignal } = {},
+): Promise<AsrTranscriptionResult> {
   return new Promise((resolve, reject) => {
     const signal = getOperationSignal(options.signal);
     try {
@@ -617,16 +636,8 @@ export async function runManagedAsrRuntime(
     }
     const spawnFn = options.spawnFn ?? spawn;
     const child = spawnFn(
-      pythonExecutable,
-      [
-        "-I",
-        "-c",
-        PYTHON_SCRIPT,
-        modelPath,
-        audioPath,
-        executionProfile.device,
-        executionProfile.computeType,
-      ],
+      executable,
+      args,
       {
         env: buildAsrRuntimeEnv(process.env),
         shell: false,
@@ -925,38 +936,41 @@ export async function transcribeVideoPart(
   try {
     assertDuration(request.durationSeconds);
     throwIfAborted(signal);
+    const local = (dependencies.getLocalTranscriber ?? readLocalTranscriber)();
     const paths = getPaths();
-    const state = getState(paths.stateFile);
-    if (state.kind !== "ready") {
-      throw new AsrError(
-        "ASR_NOT_READY",
-        "Local ASR is not ready. Run `npx -y @xzxzzx/bilibili-mcp@latest setup`, then inspect `doctor --json`.",
-      );
+    let executionProfile: AsrExecutionProfile | undefined;
+    if (!local) {
+      const state = getState(paths.stateFile);
+      if (state.kind !== "ready") {
+        throw new AsrError(
+          "ASR_NOT_READY",
+          "Local ASR is not ready. Run `bilibili-study-mcp setup`, then inspect `doctor --json`.",
+        );
+      }
+      executionProfile = state.executionProfile !== undefined &&
+        state.deviceReadiness === "ready" &&
+        state.migrationStatus === "completed"
+        ? resolveExecutionProfile(
+            state.executionProfile.device,
+            state.executionProfile.computeType,
+          )
+        : undefined;
+      if (
+        executionProfile === undefined &&
+        state.executionProfile === undefined &&
+        state.deviceReadiness === "migration_pending" &&
+        state.migrationStatus === "pending"
+      ) {
+        executionProfile = await migrateLegacyState(paths, state, signal);
+        throwIfAborted(signal);
+      }
+      if (executionProfile === undefined) {
+        throw new AsrError(
+          "ASR_NOT_READY",
+          "Local ASR has no verified execution profile. Run setup, then inspect doctor --json.",
+        );
+      }
     }
-    let executionProfile = state.executionProfile !== undefined &&
-      state.deviceReadiness === "ready" &&
-      state.migrationStatus === "completed"
-      ? resolveExecutionProfile(
-          state.executionProfile.device,
-          state.executionProfile.computeType,
-        )
-      : undefined;
-    if (
-      executionProfile === undefined &&
-      state.executionProfile === undefined &&
-      state.deviceReadiness === "migration_pending" &&
-      state.migrationStatus === "pending"
-    ) {
-      executionProfile = await migrateLegacyState(paths, state, signal);
-      throwIfAborted(signal);
-    }
-    if (executionProfile === undefined) {
-      throw new AsrError(
-        "ASR_NOT_READY",
-        "Local ASR has no verified execution profile. Run setup, then inspect doctor --json.",
-      );
-    }
-
     const playback = await getPlayback(request.bvid, request.cid, signal);
     throwIfAborted(signal);
     if (playback.durationSeconds !== undefined) {
@@ -971,11 +985,15 @@ export async function transcribeVideoPart(
     const audioPath = path.join(tempDir, "audio.m4a");
     await downloadAudio(playback.candidates, audioPath, signal);
     throwIfAborted(signal);
+    if (local) {
+      return await (dependencies.runLocalRuntime ?? runAsrCommand)(local.command,
+        local.args.map((arg) => arg.replaceAll("{audio}", audioPath)), { signal });
+    }
     return await runRuntime(
       managedPythonExecutable(paths.venv),
       paths.model,
       audioPath,
-      executionProfile,
+      executionProfile!,
       signal,
     );
   } finally {

@@ -1,20 +1,20 @@
 {
-  "name": "@xzxzzx/bilibili-mcp",
-  "version": "1.14.6",
-  "mcpName": "io.github.XZXZZX-Ai/bilibili-mcp",
-  "description": "Bilibili MCP tool for video metadata, transcripts, subtitles, and comment summarization",
+  "name": "@llzijian/bilibili-study-mcp",
+  "version": "0.1.0",
+  "description": "Bilibili learning MCP: timestamped transcripts, video frames and comments for course outlines and study reports",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "bilibili-mcp": "dist/cli.js"
+    "bilibili-mcp": "dist/cli.js",
+    "bilibili-study-mcp": "dist/cli.js"
   },
   "scripts": {
     "build": "node --input-type=commonjs -e \"const{rmSync}=require('fs');const{resolve,dirname,basename}=require('path');const d=resolve('dist');if(dirname(d)!==process.cwd()||basename(d)!=='dist'){console.error('Safety check failed: '+d);process.exit(1);}rmSync(d,{recursive:true,force:true});\" && tsc",
     "watch": "tsc --watch",
     "start": "node dist/index.js",
-    "test:fake-ip": "vitest run tests/pinned-https.test.ts tests/asr-transcription.test.ts tests/server-error-next-steps.test.ts",
+    "test:fake-ip": "vitest run tests/pinned-https.test.ts tests/asr-transcription.test.ts tests/server-error-next-steps.test.ts tests/media-dns.test.ts",
     "verify:local": "npm test && npm run build && node scripts/verify-local.mjs",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
@@ -30,7 +30,11 @@
     "docs/tool-reference.en.md",
     "README.md",
     "README_EN.md",
-    "LICENSE"
+    "LICENSE",
+    "skills",
+    "examples/moss_adapter.py",
+    "docs/local-transcriber.md",
+    "docs/media-network.md"
   ],
   "publishConfig": {
     "access": "public"
@@ -53,11 +57,11 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/XZXZZX-Ai/bilibili-mcp.git"
+    "url": "https://github.com/LLzijian/bilibili-study-mcp.git"
   },
-  "homepage": "https://github.com/XZXZZX-Ai/bilibili-mcp#readme",
+  "homepage": "https://github.com/LLzijian/bilibili-study-mcp#readme",
   "bugs": {
-    "url": "https://github.com/XZXZZX-Ai/bilibili-mcp/issues"
+    "url": "https://github.com/LLzijian/bilibili-study-mcp/issues"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -74,5 +78,9 @@
     "esbuild": "^0.28.1",
     "typescript": "^5.7.2",
     "vitest": "^4.1.12"
-  }
+  },
+  "private": true,
+  "contributors": [
+    "LLzijian"
+  ]
 }

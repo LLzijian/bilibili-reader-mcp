@@ -48,7 +48,7 @@ describe("credential MCP tools", () => {
 
     expect(response.isError).toBeUndefined();
     expect(payload.recommended_commands).toContain(
-      "npx -y @xzxzzx/bilibili-mcp@latest config",
+      "bilibili-study-mcp config",
     );
     expect(payload.security_notes_en.join(" ")).toContain(
       "Do not paste Cookie values",
@@ -70,11 +70,11 @@ describe("credential MCP tools", () => {
     expect(payload.source).toBe("none");
     expect(payload.logged_in).toBe(false);
     expect(payload.next_steps).toContain(
-      "Run: npx -y @xzxzzx/bilibili-mcp@latest config",
+      "Run: bilibili-study-mcp config",
     );
     expect(payload.next_steps_en).toEqual(payload.next_steps);
     expect(payload.next_steps_zh).toContain(
-      "运行：npx -y @xzxzzx/bilibili-mcp@latest config",
+      "运行：bilibili-study-mcp config",
     );
   });
 });
@@ -85,8 +85,8 @@ describe("credential next_steps in error payloads", () => {
     const payload = JSON.parse(response.content[0].text);
 
     expect(payload.recommended_commands).toEqual([
-      "npx -y @xzxzzx/bilibili-mcp@latest config",
-      "npx -y @xzxzzx/bilibili-mcp@latest check",
+      "bilibili-study-mcp config",
+      "bilibili-study-mcp check",
     ]);
     expect(payload.security_notes_zh).toContain(
       "不要把 Cookie 值粘贴到 MCP 客户端配置文件中。",
@@ -116,12 +116,10 @@ describe("package update MCP tool", () => {
     expect(response.isError).toBeUndefined();
     expect(payload.latest_version).toBe("9.9.9");
     expect(payload.update_available).toBe(true);
-    expect(payload.recommended_mcp_config.args).toEqual([
-      "-y",
-      "@xzxzzx/bilibili-mcp@latest",
-    ]);
-    expect(payload.notes_en.join(" ")).toContain("Use the @latest MCP config");
-    expect(payload.notes_zh.join(" ")).toContain("建议在 MCP 配置中使用 @latest");
+    expect(payload.recommended_mcp_config.command).toBe("node");
+    expect(payload.recommended_mcp_config.args[0]).toMatch(/index\.js$/);
+    expect(payload.notes_en.join(" ")).toContain("no npm package is published");
+    expect(payload.notes_zh.join(" ")).toContain("尚未发布 npm 包");
     expect(JSON.stringify(payload)).not.toContain("SESSDATA=");
   });
 });

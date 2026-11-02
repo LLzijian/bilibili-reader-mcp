@@ -3,7 +3,8 @@ import https from "node:https";
 import { isIP, type LookupFunction } from "node:net";
 import { Readable } from "node:stream";
 
-import { createAbortError, throwIfAborted } from "./operation-context.js";
+import { parseBoundedJsonResponse } from "../utils/bounded-response.js";
+import { linkAbortSignal, createAbortError, throwIfAborted } from "./operation-context.js";
 
 export interface ResolvedAddress {
   address: string;
@@ -146,9 +147,12 @@ export async function resolvePinnedAddress(
   if (
     answers.length > 0 &&
     answers.length <= 32 &&
-    answers.every(
-      (answer) => answer.family === 4 && isStandardFakeIpv4(answer.address),
-    )
+    answers.every((answer) => {
+      if (answer.family === 4) return isStandardFakeIpv4(answer.address);
+      if (answer.family !== 6) return false;
+      const words = parseIpv6(answer.address);
+      return words !== null && words[0] === 0x2001 && words[1] === 2 && words[2] === 0;
+    })
   ) {
     throw new FakeIpDnsError();
   }
@@ -165,6 +169,40 @@ export async function resolvePinnedAddress(
     throw new Error("Media hostname did not resolve to public addresses");
   }
   return answers[0];
+}
+
+/** 仅在用户主动启用时查询公共 DNS，不发送 Cookie 或媒体签名地址。 */
+export async function queryPublicMediaDns(
+  hostname: string,
+  signal?: AbortSignal,
+  fetchFn: typeof fetch = globalThis.fetch,
+): Promise<ResolvedAddress[]> {
+  if (!/^[a-z0-9.-]{1,253}$/i.test(hostname) ||
+    !["bilivideo.com", "bilivideo.cn"].some((suffix) => hostname.toLowerCase() === suffix || hostname.toLowerCase().endsWith("." + suffix))) {
+    throw new Error("Public media DNS requires an approved hostname");
+  }
+  const controller = new AbortController();
+  const unlink = linkAbortSignal(signal, controller);
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    throwIfAborted(controller.signal);
+    const url = new URL("https://cloudflare-dns.com/dns-query");
+    url.searchParams.set("name", hostname);
+    url.searchParams.set("type", "A");
+    const response = await fetchFn(url, { headers: { Accept: "application/dns-json" },
+      redirect: "manual", credentials: "omit", signal: controller.signal });
+    if (!response.ok) { await response.body?.cancel(); throw new Error("Public DNS request failed"); }
+    const value = await parseBoundedJsonResponse<{ Status?: unknown; Answer?: unknown }>(response, 65_536, "media_dns_json");
+    if (value.Status !== 0 || !Array.isArray(value.Answer) || value.Answer.length > 32) throw new Error("Public DNS response invalid");
+    const answers: ResolvedAddress[] = [];
+    for (const entry of value.Answer) {
+      if (entry?.type !== 1) continue;
+      if (typeof entry.data !== "string" || isIP(entry.data) !== 4 || !isPublicIpAddress(entry.data)) throw new Error("Public DNS returned a non-public address");
+      answers.push({ address: entry.data, family: 4 });
+    }
+    if (!answers.length) throw new Error("Public DNS returned no addresses");
+    return answers;
+  } finally { clearTimeout(timer); unlink(); controller.abort(); }
 }
 
 export interface PinnedHttpsFetchOptions {
@@ -202,10 +240,12 @@ export async function pinnedHttpsFetch(
   const signal =
     init.signal ?? (input instanceof Request ? input.signal : undefined);
   throwIfAborted(signal ?? undefined);
-  const pinned = await resolvePinnedAddress(
-    url.hostname,
-    options.resolver,
-  );
+  const mode = process.env.BILIBILI_MEDIA_DNS ?? "system";
+  if (!["system", "cloudflare"].includes(mode)) throw new Error("Unsupported BILIBILI_MEDIA_DNS mode");
+  const resolver = options.resolver ?? (mode === "cloudflare"
+    ? (hostname: string) => queryPublicMediaDns(hostname, signal ?? undefined)
+    : defaultResolver);
+  const pinned = await resolvePinnedAddress(url.hostname, resolver);
   throwIfAborted(signal ?? undefined);
 
   const headers = new Headers(

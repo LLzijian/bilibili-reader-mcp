@@ -1,3 +1,9 @@
+# 本机模型配置、测试媒体和生成报告
+.local/
+*.mp4
+*.m4a
+*.wav
+
 # 依赖
 node_modules/
 

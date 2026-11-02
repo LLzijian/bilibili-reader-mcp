@@ -33,6 +33,7 @@ import {
   type AsrModelSpec,
 } from "./asr/state.js";
 import { runAsrInstallation, type InstallResult } from "./asr/installer.js";
+import { readLocalTranscriber } from "./asr/local-transcriber.js";
 
 const ASR_MODEL_TIER_DESCRIPTIONS: Record<AsrModelKey, string> = {
   tiny: "速度优先：适合快速提取和长视频初筛，准确率相对较低",
@@ -325,6 +326,7 @@ export interface DoctorStatus {
     migration_status: AsrMigrationStatus | null;
     failure_category: AsrFailureCategory | null;
   };
+  local_transcriber?: { configured: boolean; inference_verified: false };
   status: "locally_ready" | "needs_credentials";
   next_steps: string[];
 }
@@ -363,7 +365,8 @@ export function buildDoctorStatus(
     : null;
 
   return {
-    package_name: "@xzxzzx/bilibili-mcp",
+    package_name: packageJson.name,
+    local_transcriber: { configured: readLocalTranscriber() !== undefined, inference_verified: false },
     version: packageJson.version,
     runtime: {
       node: process.version,
@@ -397,8 +400,8 @@ export function buildDoctorStatus(
     next_steps: isReady
       ? []
       : [
-          "Run: npx -y @xzxzzx/bilibili-mcp@latest setup",
-          "Then run: npx -y @xzxzzx/bilibili-mcp@latest check",
+          "Run: bilibili-study-mcp setup",
+          "Then run: bilibili-study-mcp check",
         ],
   };
 }
@@ -426,6 +429,7 @@ export function doctorCommand(
         );
       }
       console.log(`Credentials loadable: ${status.credentials.loadable}`);
+      console.log(`Local transcriber: ${status.local_transcriber?.configured ? "configured (inference not checked)" : "not configured"}`);
       console.log(`ASR: ${status.asr.status}`);
       if (status.asr.model) {
         console.log(`ASR model: ${status.asr.model}`);
@@ -631,10 +635,10 @@ export async function setupCredentials(
       "Error: setup requires an interactive terminal (TTY).",
     );
     console.error(
-      "For non-interactive local status, use: npx -y @xzxzzx/bilibili-mcp@latest doctor --json",
+      "For non-interactive local status, use: bilibili-study-mcp doctor --json",
     );
     console.error(
-      "To configure credentials interactively, run: npx -y @xzxzzx/bilibili-mcp@latest setup",
+      "To configure credentials interactively, run: bilibili-study-mcp setup",
     );
     process.exit(1);
   }
@@ -646,6 +650,12 @@ export async function setupCredentials(
       return;
     }
   }
+
+  if (readLocalTranscriber()) {
+    console.log("已配置本地转写程序，将复用现有模型，无需安装 faster-whisper；推理能力以实际转写结果为准。");
+    return;
+  }
+  console.log("已有本地模型可配置 ~/.bilibili-mcp/transcriber.json，参见 docs/local-transcriber.md。");
 
   // Read local readiness without installing or probing devices again.
   const asrState = readAsrState(deriveAsrPaths().stateFile);

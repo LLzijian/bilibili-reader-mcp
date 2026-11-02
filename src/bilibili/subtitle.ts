@@ -64,7 +64,7 @@ async function verifyLoginForEmptySubtitles(bvid: string): Promise<void> {
   const { isLogin } = await checkLoginStatus();
   if (!isLogin) {
     throw new BilibiliAPIError(
-      `Video ${bvid} returned an empty subtitle list and current Bilibili credentials are not logged in. Run "npx -y @xzxzzx/bilibili-mcp@latest config", then "npx -y @xzxzzx/bilibili-mcp@latest check", or update environment variables.`,
+      `Video ${bvid} returned an empty subtitle list and current Bilibili credentials are not logged in. Run "bilibili-study-mcp config", then "bilibili-study-mcp check", or update environment variables.`,
       'COOKIE_EXPIRED',
       undefined,
       { code: -101, bvid }

@@ -12,8 +12,11 @@ import {
   setupCredentials,
   type DoctorStatus,
 } from "../src/cli.js";
+import { readLocalTranscriber } from "../src/asr/local-transcriber.js";
 import { credentialManager } from "../src/utils/credentials.js";
 import { ASR_PINNED_RUNTIME, ASR_PINNED_MODEL, ASR_PINNED_REVISION, ASR_MODEL_SPECS, readAsrState, deriveAsrPaths, type AsrModelKey } from "../src/asr/state.js";
+
+vi.mock("../src/asr/local-transcriber.js", () => ({ readLocalTranscriber: vi.fn(() => undefined) }));
 
 const ENV_KEYS = [
   "BILIBILI_SESSDATA",
@@ -219,7 +222,7 @@ describe("buildDoctorStatus", () => {
 
     const status = buildDoctorStatus();
 
-    expect(status.package_name).toBe("@xzxzzx/bilibili-mcp");
+    expect(status.package_name).toBe("@llzijian/bilibili-study-mcp");
     expect(status.version).toBe(pkg.version);
     expect(status.runtime.node).toBe(process.version);
     expect(status.runtime.platform).toBe(os.platform());
@@ -314,6 +317,7 @@ describe("buildDoctorStatus", () => {
     expect(keys).toEqual([
       "asr",
       "credentials",
+      "local_transcriber",
       "next_steps",
       "package_name",
       "runtime",
@@ -1340,6 +1344,16 @@ describe("setupCredentials model selection", () => {
     } else {
       delete (process.stdin as NodeJS.ReadStream & { isTTY?: boolean }).isTTY;
     }
+  });
+
+  it("reuses configured local ASR without asking to install Whisper", async () => {
+    Object.defineProperty(process.stdin, "isTTY", { configurable: true, value: true });
+    vi.mocked(readLocalTranscriber).mockReturnValueOnce({ command: process.execPath, args: ["adapter.js", "{audio}"] });
+    const install = vi.fn(async () => ({ success: true }));
+    const ask = vi.fn();
+    await setupCredentials(async () => true, install, ask);
+    expect(install).not.toHaveBeenCalled();
+    expect(ask).not.toHaveBeenCalled();
   });
 
   it("No answer does not reach model selector", async () => {

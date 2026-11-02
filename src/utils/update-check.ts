@@ -1,4 +1,5 @@
 import fs from "fs";
+import { fileURLToPath } from "node:url";
 import { SECURITY_LIMITS } from "../security/limits.js";
 import {
   createAbortError,
@@ -9,8 +10,9 @@ import {
 import { parseBoundedJsonResponse } from "./bounded-response.js";
 import { ResourceLimitError } from "./errors.js";
 
-const PACKAGE_NAME = "@xzxzzx/bilibili-mcp";
-const LATEST_PACKAGE_SPEC = `${PACKAGE_NAME}@latest`;
+const PACKAGE_NAME = "@llzijian/bilibili-study-mcp";
+const LOCAL_ENTRY = fileURLToPath(new URL("../index.js", import.meta.url));
+const LOCAL_CLI = fileURLToPath(new URL("../cli.js", import.meta.url));
 const NPM_LATEST_URL = `https://registry.npmjs.org/${encodeURIComponent(PACKAGE_NAME)}/latest`;
 const UPDATE_TIMEOUT_MS = 5_000;
 const UPDATE_CACHE_MS = 5 * 60 * 1_000;
@@ -29,8 +31,8 @@ export interface PackageUpdateInfo {
   update_available: boolean | null;
   checked_registry: string;
   recommended_mcp_config: {
-    command: "npx";
-    args: ["-y", typeof LATEST_PACKAGE_SPEC];
+    command: "node";
+    args: string[];
   };
   update_commands: {
     npx_config: string;
@@ -79,12 +81,12 @@ function buildBaseInfo(currentVersion: string): Omit<
   "latest_version" | "update_available"
 > {
   const notesEn = [
-    "Use the @latest MCP config so new client sessions resolve the latest npm version.",
+    "This fork runs from source; no npm package is published yet. Use the local Node entry point.",
     "Restart or reload the MCP client after changing package versions or MCP configuration.",
     "Do not print update hints during stdio startup; stdout must stay reserved for JSON-RPC.",
   ];
   const notesZh = [
-    "建议在 MCP 配置中使用 @latest，这样新的客户端会话会解析 npm 最新版本。",
+    "当前 fork 从源码运行，尚未发布 npm 包；请使用本机 Node 入口。",
     "修改包版本或 MCP 配置后，请重启或重新加载 MCP 客户端。",
     "不要在 stdio 启动时打印更新提示；stdout 必须保留给 JSON-RPC。",
   ];
@@ -94,13 +96,13 @@ function buildBaseInfo(currentVersion: string): Omit<
     current_version: currentVersion,
     checked_registry: NPM_LATEST_URL,
     recommended_mcp_config: {
-      command: "npx",
-      args: ["-y", LATEST_PACKAGE_SPEC],
+      command: "node",
+      args: [LOCAL_ENTRY],
     },
     update_commands: {
-      npx_config: `npx -y ${LATEST_PACKAGE_SPEC} config`,
-      npx_check: `npx -y ${LATEST_PACKAGE_SPEC} check`,
-      global_update: `npm install -g ${LATEST_PACKAGE_SPEC}`,
+      npx_config: `node "${LOCAL_CLI}" config`,
+      npx_check: `node "${LOCAL_CLI}" check`,
+      global_update: "Update your Git source checkout, then run npm ci and npm run build.",
     },
     notes: notesEn,
     notes_en: notesEn,
@@ -158,15 +160,15 @@ async function fetchPackageUpdateInfo(
       update_available: null,
       notes: [
         ...baseInfo.notes,
-        "Could not reach the npm registry; retry later or run npm view @xzxzzx/bilibili-mcp version.",
+        "Could not reach the npm registry; retry later or run npm view @llzijian/bilibili-study-mcp version.",
       ],
       notes_en: [
         ...baseInfo.notes_en,
-        "Could not reach the npm registry; retry later or run npm view @xzxzzx/bilibili-mcp version.",
+        "Could not reach the npm registry; retry later or run npm view @llzijian/bilibili-study-mcp version.",
       ],
       notes_zh: [
         ...baseInfo.notes_zh,
-        "无法连接 npm registry；请稍后重试，或运行 npm view @xzxzzx/bilibili-mcp version。",
+        "无法连接 npm registry；请稍后重试，或运行 npm view @llzijian/bilibili-study-mcp version。",
       ],
     };
   } finally {

@@ -29,3 +29,8 @@ dist/smithery-test.*
 .gitignore
 .npmignore
 .github/
+
+# 本机材料与 Python 缓存
+.local/
+__pycache__/
+*.py[cod]

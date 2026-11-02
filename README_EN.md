@@ -1,273 +1,50 @@
-# Bilibili MCP
+# Bilibili Study MCP
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/@xzxzzx/bilibili-mcp"><img src="https://img.shields.io/npm/v/@xzxzzx/bilibili-mcp.svg" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/@xzxzzx/bilibili-mcp"><img src="https://img.shields.io/npm/dm/@xzxzzx/bilibili-mcp.svg" alt="npm downloads"></a>
-  <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache-2.0 license"></a>
-</p>
+Read Bilibili lectures, courses and tutorials with **full timestamped transcripts and selected original video frames**, then let your agent write a source-linked outline or study report.
 
-Bilibili MCP is a local MCP server that lets AI agents read Bilibili. You can read transcripts and comments, search for videos by topic, find Creators by name or keyword and understand their content, and browse your own Favorite Folders. Even videos without subtitles become readable once you install the local ASR model.
+An Apache-2.0 fork of [XZXZZX-Ai/bilibili-mcp](https://github.com/XZXZZX-Ai/bilibili-mcp), retaining the original attribution and license.
 
-<p align="center">
-  <a href="./README.md">简体中文</a> ·
-  <a href="#understand-a-creator-quickly">Understand a Creator</a> ·
-  <a href="./docs/client-setup.en.md">Client setup guide</a> ·
-  <a href="./docs/tool-reference.en.md">Tool reference</a> ·
-  <a href="#local-asr-optional">Local ASR (optional)</a> ·
-  <a href="./CHANGELOG_EN.md">Changelog</a> ·
-  <a href="https://github.com/XZXZZX-Ai/bilibili-mcp/releases/latest">Latest release</a>
-</p>
+[中文](README.md) · [Tools](docs/tool-reference.en.md) · [Local ASR](docs/local-transcriber.md) · [Study skill](skills/bilibili-study/SKILL.md)
 
-<p align="center">
-  <img src="./assets/readme/hero-overview.png" width="100%" alt="Searched videos pass through the local MCP server and yield timestamped transcripts, chapters, comments, and Favorite Folder results">
-</p>
+## Features
 
-<p align="center"><sub>Search candidates → local MCP → transcript search · chapters · comments · favorites</sub></p>
+- Human subtitles, Bilibili AI subtitles, timestamp ranges, keyword lookup and multipart videos.
+- get_video_frames returns actual JPEG image content to a vision-capable MCP client, with timestamps and source links, for slides, charts, formulas and demonstrations.
+- Keep managed faster-whisper as an option, or reuse an installed local transcription program through a validated command configuration. An example adapter supports an existing moss-transcribe installation.
+- Keep metadata, chapters, search, creator content and comments. Personal favorites are removed.
+- study_video MCP prompt and optional agent skill guide outline/report generation. The host agent supplies reasoning and vision; the server requires no extra cloud model.
 
-## What it does
+## Run from source
 
-- **Read transcripts and comments** — pull the full transcript or search it for keywords, every match carrying context, a timestamp, and a direct Bilibili link to that moment; read hot- (default) or time-sorted comments and replies. Hot mode prioritizes comments containing video timestamps; time mode preserves the upstream order of newest root comments.
-- **Read a single video** — fetch metadata such as title, creator, and play counts, plus the multi-part structure and chapters.
-- **Find videos** — search Bilibili by topic and get candidates in Bilibili's platform order, each with title, creator, duration, and BVID.
-- **Find Creators** — search Creator candidates and confirm the account you actually mean.
-- **Understand a Creator** — browse their profile, videos, Collections, Series, and Dynamics to see what they mainly publish.
-- **Browse favorites** — traverse every Favorite Folder your logged-in account created and Bilibili currently shows, page by page.
-- **Transcribe subtitle-less videos locally** — for videos confirmed to have no subtitles, opt in to a local faster-whisper transcription that returns the same transcript shape as subtitles. Off by default; you can choose to download an ASR model during `setup`. See [Local ASR (optional)](#local-asr-optional).
+Requires Node.js 20+. Frame extraction also requires FFmpeg in PATH or BILIBILI_FFMPEG_PATH pointing to its executable.
 
-## Get started
+~~~sh
+git clone https://github.com/LLzijian/bilibili-study-mcp.git
+cd bilibili-study-mcp
+npm ci
+npm run build
+node dist/cli.js setup
+node dist/cli.js doctor --json
+~~~
 
-### Install with Agent assistance (recommended)
+There is no npm release yet. Optionally run npm link for a local bilibili-study-mcp command. Credentials stay in ~/.bilibili-mcp/, outside the repository. Set BILIBILI_QR_BROWSER=1 before setup to show the QR code in your default browser; the temporary page is deleted when the attempt ends.
 
-Copy the full prompt below to your Agent. It handles everything it safely can — identifying your client, writing the server configuration, and checking login state — and pauses for you whenever a step touches your Cookie:
+MCP client configuration (replace the path with your absolute local path):
 
-```text
-Please help me install the Bilibili MCP server: @xzxzzx/bilibili-mcp.
+~~~json
+{"mcpServers":{"bilibili-study":{"command":"node","args":["/absolute/path/to/bilibili-study-mcp/dist/index.js"]}}}
+~~~
 
-1. First identify which MCP client I'm using. Ask me if you can't tell — don't guess.
-   Also run node --version to confirm Node.js is 20 or newer; if missing or older, guide me to install or upgrade first.
-2. Open https://github.com/XZXZZX-Ai/bilibili-mcp/blob/master/docs/client-setup.en.md,
-   find the matching client section, and add a local stdio server:
-   - server name: bilibili-mcp
-   - command: npx
-   - args: ["-y", "@xzxzzx/bilibili-mcp@latest"]
-3. Never request, receive, collect, or display my Cookie values, and never write
-   them into chat or client config yourself.
-4. Stop and guide me to run these in my own local terminal:
-   npx -y @xzxzzx/bilibili-mcp@latest setup
-   npx -y @xzxzzx/bilibili-mcp@latest check
-   npx -y @xzxzzx/bilibili-mcp@latest doctor --json
-   doctor --json checks local configuration only; it does not replace the live login verification below.
-   Recommend QR login: press Enter at the login-method menu, then tell me to scan using the mobile Bilibili App and confirm on my phone. Choose manual Cookie entry if scanning is unavailable.
-   Keep the QR in my interactive terminal; do not collect the QR, login URL, or Cookies in chat.
-   setup will ask about installing the optional local ASR model; choosing no is fine. Automated environments can run setup --non-interactive (credentials come from existing environment variables or the global config file; no prompts, and credential values are never read from stdin/argv); add --asr-model <tiny|base|small> to install a model and --asr-device <auto|cpu|cuda> to choose the device preference (default: auto).
-5. Ask me to restart or reconnect the client. When you can't do it for me,
-   tell me explicitly to do it myself.
-6. After reconnect, call the MCP tool check_bilibili_credentials.
-   Only report success when configured: true and logged_in: true.
-   - configured: false or needs_credentials → have me run npx -y @xzxzzx/bilibili-mcp@latest setup
-   - logged_in: false → have me run npx -y @xzxzzx/bilibili-mcp@latest config to force
-     reconfiguration, then reconnect and recheck
-   - MCP server unavailable → review client config and reconnect
-7. After verification succeeds: call search_bilibili_videos once (any topic, e.g.
-   "discrete mathematics"). A returned video list confirms the Agent can read Bilibili.
-```
+To reuse a local ASR program, configure ~/.bilibili-mcp/transcriber.json or BILIBILI_TRANSCRIBER_CONFIG. See [the protocol and adapter example](docs/local-transcriber.md). Restart the client after configuration changes.
 
-### Install manually
+## Study workflow
 
-**Prerequisite:** [Node.js](https://nodejs.org/) 20+
+Ask your agent to read a course transcript, inspect key slides or demonstrations, and create an outline or report with timestamp links. Clients supporting MCP prompts can select study_video with bvid_or_url, optional page, and mode=outline or report. The optional skill is in skills/bilibili-study.
 
-Prefer to do it yourself? The same flow takes four steps:
-
-1. **Check your environment** — run `node --version` and `npx --version` in a terminal to confirm Node.js is v20 or later.
-2. **Add the server** — add a stdio server in your MCP client: `command` set to `npx`, `args` set to `-y`, `@xzxzzx/bilibili-mcp@latest`. Per-client steps live in the [client setup guide](./docs/client-setup.en.md#client-configuration).
-3. **Configure locally** — run `npx -y @xzxzzx/bilibili-mcp@latest setup` in your terminal to configure credentials, then `npx -y @xzxzzx/bilibili-mcp@latest check` to confirm they load. `npx -y @xzxzzx/bilibili-mcp@latest doctor --json` reports the secret-free local configuration state.
-
-   Input is not echoed; Cookie values go only into hidden local prompts — never paste them into Agent chat or client configuration. Where to find each field: [Finding credential fields in your browser](./docs/client-setup.en.md#finding-credential-fields-in-your-browser). `setup` also asks whether to install an optional local ASR model (default no); see [Local ASR (optional)](#local-asr-optional).
-4. **Verify the login** — after reconnecting the client, have your Agent call the MCP tool `check_bilibili_credentials` and confirm `configured: true` and `logged_in: true`. `doctor --json` only inspects local state; it does not replace this live login check. Once verification passes, have the Agent call `search_bilibili_videos` once (any topic); a returned video list means the installation is complete.
-
-<p align="center">
-  <img src="./assets/readme/install-flow-en.svg" width="100%" alt="Installation flow: Runtime → Connect → Credentials → Verify → Success — one skeleton shared by manual and Agent-assisted installs">
-</p>
-
-Credentials are stored at `~/.bilibili-mcp/config.json` (Windows: `%USERPROFILE%\.bilibili-mcp\config.json`). Operating-system-level encryption is not guaranteed. For login-failure troubleshooting, see the [client setup guide](./docs/client-setup.en.md#credential-setup-and-verification).
-
-### QR login (recommended)
-
-Run setup and press Enter to choose QR login. Scan the QR in your terminal with the **mobile Bilibili App**, then confirm on your phone. No browser Cookie copying is needed, making login easier.
-
-**Can't scan?** If the QR renders with broken block characters or hollow boxes, see the legacy Windows console fix in the [client setup guide](./docs/client-setup.en.md#recommended-interactive-local-setup). You can also choose manual Cookie entry in the login-method menu, then follow the [manual Cookie setup guide](./docs/client-setup.en.md#finding-credential-fields-in-your-browser) to find your credentials and enter them in your local terminal.
-
-## Usage examples
-
-### Read a video's transcripts and comments
-
-```text
-Read the transcript of BV1Eb411u7Fw with timestamps,
-then pull its most popular comments and replies.
-```
-
-The Agent returns timestamped transcript lines, then hot comments with replies; comments containing timestamps are kept with priority.
-
-### Search for videos by topic
-
-```text
-Search Bilibili for videos about "discrete mathematics". List 5 candidates
-in Bilibili's overall platform order, with title, creator, duration, and
-BVID. Do not fetch transcripts yet.
-```
-
-The agent returns 5 candidates with title, creator, duration, and BVID. After choosing a candidate, pass its BVID straight to the transcript, metadata, chapter, or comment tools.
-
-### Understand a Creator quickly
-
-```text
-Search for "毕导THU" and list Creator candidates. After I confirm the correct
-account, read the profile, then inspect the latest videos, Collections, Series, and
-Dynamics. Summarize the main directions from the returned content and recommend a
-few videos to explore next. Do not crawl every page, fetch transcripts or comments,
-or interpret Dynamic images automatically.
-```
-
-The Agent first lets you confirm the right Creator, then reads each content type in small batches. It can continue paging when you want more, and selected videos can then feed the transcript, metadata, chapter, or comment tools.
-
-### Find exact lines and moments in a transcript
-
-```text
-Read Part 4 of BV1Eb411u7Fw and search its transcript for the Chinese keyword
-"函数". Return the matching context, time, and a Bilibili link to that moment.
-```
-
-Each hit comes with the surrounding text, a timestamp, and a direct Bilibili moment link.
-
-> [!NOTE]
-> **Verified workflow:** search → select Part 4 of `BV1Eb411u7Fw` → search its transcript for `函数` → receive bounded context and a direct [`?p=4&t=1.12`](https://www.bilibili.com/video/BV1Eb411u7Fw/?p=4&t=1.12) evidence link. Bilibili may remove or change this example video.
-
-### Traverse every visible Favorite Folder
-
-<p align="center">
-  <img src="./assets/readme/hero-en.svg" width="100%" alt="Favorites traversal flow: Folders → Read page → next_cursor → Complete, looping until next_cursor stops appearing">
-</p>
-
-```text
-Traverse every Favorite Folder created by my currently logged-in account and
-currently visible through Bilibili. Keep following next_cursor until complete.
-Group successfully read video titles and Bilibili video IDs (BVIDs) by Folder,
-and report skipped_count.
-```
-
-Each MCP call reads at most one upstream page of 20 rows. The Agent continues with the returned `next_cursor` until that field is absent. The final answer lists successfully read titles and BVIDs per folder, plus the skipped-entry count.
-
-### Transcribe a video that has no subtitles
-
-```text
-This video has no subtitles. Call get_video_transcript with fallback_to_asr
-set to true and transcribe the current Part with local ASR. Return timestamped
-text.
-```
-
-This requires a model installed through `setup` and `doctor --json` reporting `asr.status: ready`; otherwise the call returns `ASR_NOT_READY` with setup guidance. Native subtitles always win: a local transcription starts only when subtitles are confirmed unavailable, returns `data_source: "asr"`, and reuses the same timestamps, range filters, keyword search, and moment links. See [Local ASR](#local-asr-optional).
-
-### Distinguishing AI subtitles (ai-*) from human subtitles
-
-Bilibili marks some videos' AI-generated subtitles as `ai-zh`, `ai-en`, `ai-ja`, and other `ai-*` languages. To keep them distinguishable from human subtitles, when any `ai-*` track is selected both `get_video_transcript` and `get_video_info` return `data_source: "ai_subtitle"` (not `"subtitle"`; managed local ASR stays `"asr"`).
-
-- `ai_subtitle` is Bilibili AI transcription; it may be inaccurate and is not equivalent to a human-checked citation.
-- `exclude_ai_subtitles: true` (both tools, default `false`): filters out all Bilibili AI tracks (`ai-zh`, `ai-en`, etc.) before selection and prefers any remaining human subtitle. If only AI tracks remain, the result is treated as definitive absence — `get_video_transcript` may use explicit `fallback_to_asr` / `fallback_to_description`, and `get_video_info` returns the description.
-- `force_asr: true` (transcript only, default `false`): bypasses subtitle metadata and content selection and transcribes the resolved Part with the local ASR, even when valid human subtitles exist. It does not require `fallback_to_asr: true` and wins over `exclude_ai_subtitles`.
-- Every selected `ai-*` track is unconditionally read twice and passes a deterministic integrity assessment before its body is returned: cross-read stability (two reads with different normalized bodies are unusable; applies to every `ai-*` language) and language (ai-zh only: a body with at least 80 Unicode letters and under 10% Han letters is an `ai-zh` mismatch; other `ai-*` languages are not rejected for being non-Chinese). An unusable track invokes the local ASR with `fallback_to_asr: true`, otherwise the existing `fallback_to_description` contract applies; video-info returns the description without caching it. Stable same-language bodies that are semantically off-topic are an accepted limitation, controlled by `force_asr` or `exclude_ai_subtitles`. Human subtitles stay single-read, and a transport, timeout, auth, or parse failure on the second read remains an error.
-
-## Local ASR (optional)
-
-Some videos ship without any subtitle. Once you install a local ASR model, `get_video_transcript` can run one bounded local transcription of the resolved Part when you explicitly pass `fallback_to_asr`.
-
-**Installation:** after credentials are configured, `setup` asks whether to install a local ASR model (defaults to No `[y/N]`, requires Python 3.9+). Available models:
-
-| Model | Size | Notes |
-|---|---|---|
-| tiny | ~78 MB | Speed-first: suited to quick extraction and initial review of long videos; relatively lower accuracy |
-| base | ~148 MB | Balanced: balances speed, quality, and resource use |
-| small | ~486 MB | Quality-first: higher runtime and memory use; recommended, selected on Enter |
-
-The runtime is pinned to `faster-whisper==1.2.1` and `ctranslate2==4.8.0`. Models live under `~/.bilibili-mcp/asr/`, do not require system FFmpeg, and only one active model is kept per directory. After choosing a model, choose a device preference: `auto` (default) performs a complete `cuda/float16` check with a generated fixed short WAV, explains a sanitized failure and verifies/saves `cpu/int8` when CUDA is not ready; `cpu` skips GPU probing; `cuda` fails without CPU fallback. `doctor --json` reports the effective device, compute type, readiness, and sanitized failure category.
-
-The project never installs or modifies NVIDIA drivers, CUDA, cuBLAS, cuDNN, the system `PATH`, `LD_LIBRARY_PATH`, or global Python. After a GPU failure, you decide whether to keep the verified CPU profile or repair the GPU environment and rerun `setup`; every setup rerun rechecks device readiness.
-
-**Upgrading an existing installation:** a v1 ASR installation reuses its downloaded model. The first explicit ASR request after upgrade automatically validates GPU/CPU and, after successful validation, continues that same transcription. Success saves the new state so later requests do not probe again. Failure or cancellation leaves the original state pending, and rerunning `setup` after fixing the environment is the retry path.
-
-**Boundaries:** local transcription stays within safe bounds — opt-in, resource-capped, Cookie-isolated:
-
-- Native Bilibili subtitles always win; transcription starts only on confirmed no-subtitle states with an explicit `fallback_to_asr: true`.
-- `force_asr: true` is explicit authorization to transcribe the resolved Part directly, regardless of subtitle availability and without requiring `fallback_to_asr`.
-- MCP calls never download or switch models; models install only through `setup`.
-- One transcription at a time; per-Part duration capped at 2 hours, audio at 128 MiB, transcription timeout at 30 minutes.
-- Temporary audio is removed on every success, failure, and timeout path.
-- The Cookie goes only to official Bilibili APIs — never to CDN hosts or the local Python child process.
-- Credential, HTTP, and throttling errors surface as-is; they are never disguised as "no subtitles".
-
-For the full semantics and safe handling of error codes such as `ASR_NOT_READY`, `ASR_FAKE_IP_DNS`, `ASR_BUSY`, and `ASR_TRANSCRIPTION_TIMEOUT`, see the [tool reference](./docs/tool-reference.en.md). A Fake-IP diagnosis does not require disabling the entire proxy.
-
-## Tool reference
-
-| Goal | Tool |
-|---|---|
-| Have a topic but no video link yet | `search_bilibili_videos` |
-| Have a name or keyword and want Creator candidates (stable mids) | `search_bilibili_creators` |
-| Read a chosen creator's overview, video catalog, Collections, Series, or Dynamics | `get_bilibili_creator_content` |
-| Start from my Favorites | `list_bilibili_favorite_videos` |
-| Get subtitle-first video context | `get_video_info` |
-| Full transcript, keyword search, or local ASR when no subtitles | `get_video_transcript` |
-| Structured title, author, and stats | `get_video_metadata` |
-| Viewer feedback and comment replies | `get_video_comments` |
-| Chapters / progress-bar segments | `get_video_chapters` |
-| Guide a user through Cookie setup | `get_credential_setup_instructions` |
-| Check whether credentials are configured and logged in | `check_bilibili_credentials` |
-| Check for package updates | `check_mcp_update` |
-
-Complete parameters, JSON examples, and error semantics: [tool reference](./docs/tool-reference.en.md).
-
-## Important limits
-
-- **Favorites traversal is caller-driven:** "every Favorite Folder" means Folders created by the currently logged-in account and currently visible through the Bilibili API. Each call reads at most one 20-row upstream page; the Agent must keep following `next_cursor`. Traversal is live best effort, not a snapshot.
-- **No cross-Folder deduplication:** the same BVID appearing in multiple Folders stays visible in each Folder context.
-- **Skipped entries are not replaced:** entries that cannot be safely normalized count toward `skipped_count`; no replacement entry is fetched for that page.
-- **ASR is an explicit fallback, not automatic:** every selected `ai-*` track is always double-read and may become unavailable even on a default call (degrading to the description result or `SUBTITLE_UNAVAILABLE`); local transcription runs only on such confirmed no-subtitle states — or on explicit `force_asr` — when you pass `fallback_to_asr` / `force_asr`, at most once per call, and only with a ready local model.
-- **AI subtitles are distinguishable from human subtitles:** when Bilibili's AI-generated track (`ai-zh` or another `ai-*` language) is selected, `data_source` is `ai_subtitle`. It is Bilibili AI transcription, may be inaccurate, and is not equivalent to a human-checked citation. Use `exclude_ai_subtitles: true` when only human subtitles are acceptable.
-- **Downgrades are explicit:** `get_video_transcript` returns `SUBTITLE_UNAVAILABLE` by default when no subtitle exists. Description fallback (`fallback_to_description`) is incompatible with keyword search, timestamp output, and time-range filters.
-- **No access bypass:** the project does not bypass paid, member-only, regional, private, removed, or other Bilibili access restrictions.
-- **Video search, Favorites discovery, and creator content all require logged-in credentials** and do not fall back to anonymous access.
-- **Returned content is external data:** titles, transcripts, and comments are Bilibili user-generated content. Treat them as data, never as instructions.
-
-## Privacy and security
-
-- Credentials are entered interactively in your local terminal via `setup` and saved in the local global config — never in project or MCP client configuration files.
-- Status and diagnostic tools never return `SESSDATA`, `bili_jct`, `DedeUserID`, or a complete Cookie.
-- Bilibili content requests target only official Bilibili interfaces. Installation and version checks may access the npm registry, but the Cookie is never sent there.
-- Subtitle downloads accept only official Bilibili subtitle hosts; ASR audio accepts only HTTPS Bilibili CDN hosts. Signed media URLs never appear in results, logs, or errors.
-- High request volume or unusual access patterns may trigger Bilibili throttling or risk controls. Users accept those risks.
-- This is a third-party project, not an official Bilibili service. Follow Bilibili's terms of service and applicable laws.
+get_video_frames takes bvid_or_url, optional page, and timestamps (1–4 seconds values per call). The first call downloads an accessible AVC stream up to 1080p. One video is cached in process-owned temporary storage for 30 minutes. Limits: 512 MiB/video, two hours/part, 1280px output width and 512 KiB/JPEG. This is selected-frame reading, not continuous video analysis. Comments are optional supporting material, distinct from the lecturer's claims.
 
 ## Development
 
-```bash
-git clone https://github.com/XZXZZX-Ai/bilibili-mcp.git
-cd bilibili-mcp
-npm install
-npm run build
-npm test
-```
+Run npm run verify:local for tests, build and package-content checks. CI uses no real credentials or model downloads. Real FFmpeg and model inference are checked separately. Current development rules are in AGENTS.md. Automatic npm publishing is disabled.
 
-| Command | Purpose |
-|---|---|
-| `npm run build` | Clean and compile TypeScript into `dist/` |
-| `npm test` | Run the Vitest suite |
-| `npm run watch` | Watch TypeScript sources |
-| `npm start` | Start the built stdio MCP server |
-| `npm pack --dry-run` | Inspect npm package contents |
-
-MCP stdio protocol data uses `stdout`; diagnostics must go to `stderr`. Never use real Cookie values in tests or logs.
-
-## Help and license
-
-For bugs and feature requests, open a [GitHub Issue](https://github.com/XZXZZX-Ai/bilibili-mcp/issues). Use [GitHub Discussions](https://github.com/XZXZZX-Ai/bilibili-mcp/discussions) for general questions.
-
-This project is licensed under the [Apache License 2.0](./LICENSE).
+Optional Fake-IP compatibility: set BILIBILI_MEDIA_DNS=cloudflare for this MCP service only, with user consent. Default system DNS and all public-address checks remain. See [media network configuration](docs/media-network.md).

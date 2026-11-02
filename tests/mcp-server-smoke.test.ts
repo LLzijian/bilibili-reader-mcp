@@ -178,7 +178,7 @@ describe("MCP stdio entrypoint", () => {
         "get_video_chapters",
         "search_bilibili_videos",
         "search_bilibili_creators",
-        "list_bilibili_favorite_videos",
+        "get_video_frames",
         "get_bilibili_creator_content",
       ]);
 
@@ -284,31 +284,9 @@ describe("MCP stdio entrypoint", () => {
       "get_video_chapters",
       "search_bilibili_videos",
       "search_bilibili_creators",
-      "list_bilibili_favorite_videos",
+      "get_video_frames",
       "get_bilibili_creator_content",
     ]);
-  });
-
-  it("maps a base64url cursor with invalid JSON to VALIDATION_ERROR", async () => {
-    const handler = getMcpHandler<CallToolRequest, CallToolResponse>(
-      "tools/call",
-    );
-
-    const result = await handler({
-      method: "tools/call",
-      jsonrpc: "2.0",
-      id: 2,
-      params: {
-        name: "list_bilibili_favorite_videos",
-        arguments: {
-          cursor: Buffer.from("not-json", "utf8").toString("base64url"),
-        },
-      },
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result).not.toHaveProperty("structuredContent");
-    expect(JSON.parse(result.content[0].text).code).toBe("VALIDATION_ERROR");
   });
 
   it("dist/cli.js no-arg starts stdio server and logs to stderr", async () => {

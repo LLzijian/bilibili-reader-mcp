@@ -11,7 +11,6 @@
 | 只有主题，还没有视频链接 | `search_bilibili_videos` | 最多 10 个普通视频候选及可继续调用的 BVID；不自动抓取字幕或评论 |
 | 只有主题，想找 UP 主候选 | `search_bilibili_creators` | 最多 10 个 Creator 候选及其稳定数字 `mid`；显示名称模糊且不唯一，不做自动选择 |
 | 从选定 UP 主（mid）读取概览、视频目录、合集、系列或动态 | `get_bilibili_creator_content` | 一个实时概览或有界内容页（最多 20 条），按 `next_cursor` 翻页；不下载图片或自动抓取视频证据 |
-| 从我的 Bilibili 收藏夹开始读取 | `list_bilibili_favorite_videos` | 当前账号所有创建的收藏夹的一页视频（最多 20 条），按 `next_cursor` 翻页直到结束；不读取字幕、评论或下载 |
 | 想让 AI 总结一个视频 | `get_video_info` | 字幕优先；无字幕时返回标题、简介、标签 |
 | 只想拿完整转录文本或关键词定位 | `get_video_transcript` | 原生字幕优先，可显式 ASR 回退；支持时间戳、区间过滤和关键词搜索 |
 | 想查看标题、作者、播放量等结构化信息 | `get_video_metadata` | 标题、作者、时长、发布时间、标签、统计数据、多P分集列表（`pages`） |
@@ -98,27 +97,11 @@
 - 显示名称模糊且不唯一：重名/近似名保持为独立候选，按 Bilibili 原始顺序返回；本工具不自动选择某个 Creator，也不抓取候选内容。
 - 必须先配置且登录 Bilibili Cookie；成功结果同时提供格式化 JSON 文本和内容相同的 MCP `structuredContent`。
 
-### 8. 收藏夹发现 (`list_bilibili_favorite_videos`)
-
-- 从当前已登录账号自动发现所有创建的收藏夹，逐 Folder 逐页返回其中的视频成员。
-- 每次调用最多返回上游一页（固定 20 条）；`next_cursor` 是不透明、无状态、版本化的 base64url 令牌，仅包含下一个 Folder 与页码。
-- 游标在所有网络请求前严格校验：类型、长度（1-256）、字符集（仅 base64url）、JSON 结构、版本、正整数 Folder ID 与页码。
-- 续读规则：当前 Folder 的 `has_more=true` 时游标指向同 Folder 下一页；上游返回空 `medias`（即使 `has_more=true`）或 `has_more=false` 时，游标指向下一个 Folder 的第 1 页；最后一个 Folder 的最后页省略 `next_cursor`。
-- 同一 BVID 出现在多个 Folder 中时，会在各自 Folder 上下文中各返回一次（“收藏成员关系”语义）；本 MCP 不做跨 Folder 去重。
-- `skipped_count` 报告上游返回但无法安全规范化的行数（如无效 BVID、空标题）；不会触发额外的替换请求。
-- 上游的 `media_count` 只是 Bilibili 报告的计数，可能高于当前可见或可调用的行数，结果只保证返回上游当前页面内容。
-- 遍历是对 Bilibili 当前实时状态的 best-effort 读取，不提供快照隔离；续读期间新增、删除或移动收藏成员可能导致顺序或可见结果变化。
-- 不持久化、不缓存、不下载、不抓取字幕/评论/章节/搜索结果；不会发起匿名降级请求。
-- 必须先配置且登录 Bilibili Cookie；成功结果同时提供格式化 JSON 文本和内容相同的 MCP `structuredContent`。
-- 可选参数：
-  - `cursor`: 上一次成功调用返回的不透明续读令牌。首次调用请省略。
-
 ### 9. 创作者内容发现 (`get_bilibili_creator_content`)
 
 - 从调用方选定且已验证的一个 Creator `mid` 出发，读取 Bilibili 空间页面当前可见的实时内容，`section` 五选一：
   - `overview`：返回一个受字节限制的实时主页概览（名称、简介、头像、等级、`video_count` 和 `live_state`；`follower_count` 仅在上游提供有效 `fans` 事实时出现，绝不编造为 0）。`video_count` 优先取 `acc/info` 上游值；上游不提供时才允许一次有界的 `arc/search` 计数探测（`pn=1, ps=1, order=pubdate`），绝不自行编造计数。
   - `videos`：返回当前可列出的视频目录的一页（最多 20 条 BVID 元数据行）；`next_cursor` 是不透明、无状态、版本化的 base64url 令牌，仅编码 mid 与下一页号。
-  - `collections` / `series`：不传 `container_id` 时分别列出 Collection 或 Series 容器；传入该段返回的容器 ID 时，只遍历所选容器的一页 `members`。两类容器保持独立，不与多 Part Video 或 Favorite Folder 混用。
   - `dynamics`：返回一页 Creator Dynamic（最多 20 条），包括有界文字、图片 URL 与可用尺寸、关联 BVID、发布时间和转发时的原动态关系。普通动态即使浏览器 URL 使用 `/opus/` 仍是 Dynamic；不提取专门的长文/Opus 正文。
 - 游标在任何网络请求前严格校验，并绑定请求 mid、section，以及正安全整数页码与可选容器 ID，或 `dynamics` 的不透明上游 offset；不匹配或越界时返回 `VALIDATION_ERROR`，不会发出任何请求。
 - `continuationProven` 决定 `next_cursor`：有 `videos_total` 且 `page * 20 < videos_total` 时返回下一页；无总数但当前页的原始上游行数恰好 20 行时也返回下一页，避免单条畸形行截断遍历；发出 `page + 1` 前会证明其 `page * 20` 算术仍为安全整数。
@@ -151,7 +134,6 @@
 - 评论（`get_video_comments`）在未登录时可能不完整、被限流或返回空列表。
 - 视频发现（`search_bilibili_videos`）强制检查已配置且有效的登录凭证；不提供匿名降级。
 - 创作者搜索（`search_bilibili_creators`）同样强制检查已配置且有效的登录凭证；不提供匿名降级。
-- 收藏夹发现（`list_bilibili_favorite_videos`）必须从已登录的当前账号身份开始；不提供匿名降级，也不读取其他账号的公开收藏。
 - 创作者内容发现（`get_bilibili_creator_content`）需要已配置且有效的登录凭证；不提供匿名降级，`access` 恒为 `"unknown"`，不探测资源是否可访问。
 - 不建议依赖无 Cookie 模式获取字幕或评论。
 
@@ -322,34 +304,6 @@ Agent 不得自动关闭 TUN、修改代理配置、使用公共 DoH 绕过用�
 - `limit`（可选）：候选 Creator 数量，整数 1-10，默认 5。
 
 返回内容：`query` 和按 Bilibili 原始顺序排列的 `results[]`。每项含稳定数字 `mid`（正安全整数，唯一身份）、`name`、`bio`、`avatar_url`、`follower_count`、`video_count`、`level` 和本地推导的 `source_url`。只有 `mid` 为正安全整数且名称非空时才接受该候选；畸形字段规范化为空字符串或 0。重名/近似名保持为独立候选。搜索需要有效登录凭证，不会自动读取候选的视频、动态、字幕、评论或其他详情。
-
-### `list_bilibili_favorite_videos`
-
-**适合**：让 Agent 从你已登录的 Bilibili 账号开始读取全部创建的收藏夹中的视频。MCP 协议始终分页：每次调用返回上游一页（最多 20 条），Agent 按返回的 `next_cursor` 继续调用直到没有该字段为止。**不要假设一次响应包含整个账号的收藏。**
-
-请求示例（首次调用，不传 `cursor`）：
-
-```json
-{
-  "name": "list_bilibili_favorite_videos",
-  "arguments": {}
-}
-```
-
-返回内容：`folders_total`、`folder`（当前 Folder 的 `id`、`title`、`media_count`）、`page`、`videos[]`（每项含 `bvid`、`title`、`author`、`duration_seconds`、`published_at`、`favorited_at`、`source_url`）、`skipped_count`，以及可选的 `next_cursor`。账号无任何有效收藏夹时只返回 `folders_total: 0`、`videos: []`、`skipped_count: 0`。
-
-续读示例：
-
-```json
-{
-  "name": "list_bilibili_favorite_videos",
-  "arguments": {
-    "cursor": "<上一次响应中的 next_cursor>"
-  }
-}
-```
-
-> 上游返回空 `medias` 时，即使 `has_more=true`，本工具仍会把当前 Folder 视为已结束并跳到下一个 Folder 的第 1 页，避免游标循环。若游标对应的 Folder 已不再属于当前账号（例如被删除或转移），返回 `VALIDATION_ERROR` 并提示“restart without a cursor”。
 
 ### `get_bilibili_creator_content`
 
@@ -598,3 +552,13 @@ Series 使用相同模式但 `section` 为 `"series"`，且必须使用 Series �
 以上环境变量均在 MCP server 进程启动时读取，修改后需重启 MCP 客户端或重连 MCP server 才能生效。
 
 ---
+
+## 画面与学习流程
+
+get_video_frames takes bvid_or_url, optional page, and timestamps (1–4 numeric seconds). Returns alternating timestamp/link text and image/jpeg MCP content. Requires FFmpeg; BILIBILI_FFMPEG_PATH can select an installed executable. Supports accessible AVC streams up to 1080p, 512 MiB and two hours. One video is cached for 30 minutes, output width up to 1280px, each JPEG up to 512 KiB.
+
+Use the study_video prompt with mode=outline or report for a transcript → selected frames → source-linked learning report workflow. Reports are written by the host agent, not an extra server-side LLM.
+
+Existing local ASR programs can be configured instead of installing faster-whisper: [local command protocol and MOSS example](local-transcriber.md).
+
+另一个可明确选择的方案是仅为本工具设置 BILIBILI_MEDIA_DNS=cloudflare，参见 [媒体网络配置](media-network.md)；不要未经用户选择自动开启。

@@ -41,7 +41,7 @@ describe("MCP tool list baseline", () => {
     expect(names).toContain("get_video_chapters");
     expect(names).toContain("search_bilibili_videos");
     expect(names).toContain("search_bilibili_creators");
-    expect(names).toContain("list_bilibili_favorite_videos");
+    expect(names).toContain("get_video_frames");
     expect(names).toContain("get_bilibili_creator_content");
   });
 
@@ -57,7 +57,7 @@ describe("MCP tool list baseline", () => {
       "get_video_chapters",
       "search_bilibili_videos",
       "search_bilibili_creators",
-      "list_bilibili_favorite_videos",
+      "get_video_frames",
       "get_bilibili_creator_content",
     ]);
   });
@@ -81,7 +81,7 @@ describe("MCP tool list baseline", () => {
       get_video_chapters: ["bvid_or_url"],
       search_bilibili_videos: ["query"],
       search_bilibili_creators: ["query"],
-      list_bilibili_favorite_videos: [],
+      get_video_frames: ["bvid_or_url", "timestamps"],
       get_bilibili_creator_content: ["mid", "section"],
     });
   });
@@ -433,7 +433,7 @@ describe("MCP tool list baseline", () => {
         "get_video_chapters",
         "search_bilibili_videos",
         "search_bilibili_creators",
-        "list_bilibili_favorite_videos",
+        "get_video_frames",
         "get_bilibili_creator_content",
       ];
       for (const name of textTools) {
@@ -634,79 +634,6 @@ describe("MCP tool list baseline", () => {
     it("is registered as the 10th tool", () => {
       const names = toolsResult.tools.map((t) => t.name);
       expect(names[9]).toBe("search_bilibili_creators");
-    });
-  });
-
-  describe("list_bilibili_favorite_videos schema", () => {
-    it("declares the bounded cursor input and structured favorites output", () => {
-      const schema = toolsResult.tools.find(
-        (tool) => tool.name === "list_bilibili_favorite_videos",
-      )!;
-
-      expect(schema).toBeDefined();
-      expect(schema.inputSchema).toEqual({
-        type: "object",
-        properties: {
-          cursor: {
-            type: "string",
-            minLength: 1,
-            maxLength: 256,
-            pattern: "^[A-Za-z0-9_-]+$",
-            description:
-              "Opaque continuation token returned by a previous successful call. Omit on the first call. The token encodes only a versioned Folder ID and page number; it never contains credentials, account IDs, Folder titles, or Video data.",
-          },
-        },
-        required: [],
-      });
-      expect(schema.outputSchema).toEqual({
-        type: "object",
-        properties: {
-          folders_total: { type: "integer", minimum: 0, maximum: 100 },
-          folder: {
-            type: "object",
-            properties: {
-              id: { type: "integer" },
-              title: { type: "string", maxLength: 256 },
-              media_count: { type: "integer" },
-            },
-            required: ["id", "title", "media_count"],
-          },
-          page: { type: "integer" },
-          videos: {
-            type: "array",
-            maxItems: 20,
-            items: {
-              type: "object",
-              properties: {
-                bvid: { type: "string", maxLength: 12 },
-                title: { type: "string", maxLength: 512 },
-                author: { type: "string", maxLength: 128 },
-                duration_seconds: { type: "integer" },
-                published_at: { type: "string" },
-                favorited_at: { type: "string" },
-                source_url: { type: "string" },
-              },
-              required: [
-                "bvid",
-                "title",
-                "author",
-                "duration_seconds",
-                "published_at",
-                "favorited_at",
-                "source_url",
-              ],
-            },
-          },
-          skipped_count: { type: "integer" },
-          next_cursor: { type: "string", maxLength: 256 },
-        },
-        required: ["folders_total", "videos", "skipped_count"],
-      });
-    });
-
-    it("is registered as the 11th tool", () => {
-      const names = toolsResult.tools.map((t) => t.name);
-      expect(names[10]).toBe("list_bilibili_favorite_videos");
     });
   });
 
