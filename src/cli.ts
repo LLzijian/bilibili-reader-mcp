@@ -736,7 +736,7 @@ export function createCli() {
   const cli = new Command()
     .name("bilibili-reader-mcp")
     .version(packageJson.version, "-V, --version")
-    .description("Bilibili MCP 工具 - 视频和评论总结")
+    .description("B 站视频阅读器 - 字幕、关键画面、语音转写与评论读取")
     .option("-v", "输出版本号");
 
   cli.on("option:v", () => {
