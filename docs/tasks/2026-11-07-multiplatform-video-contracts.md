@@ -70,7 +70,9 @@ export function createPinnedHttpsFetch(
 // src/media/temp.ts
 export function createMediaTempDir(): Promise<string>;   // 前缀 "bilibili-reader-media-",登记入内部注册表
 export function cleanupMediaTempDir(dir: string): Promise<void>;
-export function isRegisteredTempDir(path: string): boolean; // 同时认可 media 与 ASR 前缀目录
+export function isRegisteredMediaTempDir(path: string): boolean; // 仅 media 前缀注册表
+// 注意:media/temp.ts 不得 import asr/transcription.js(避免环)。
+// 对"任一已登记临时目录"的联合判断由 transcription.ts 内部完成(见 §6)。
 
 // src/media/ffmpeg.ts
 export function resolveFfmpegPath(): string;    // env BILIBILI_FFMPEG_PATH ?? "ffmpeg"
@@ -130,7 +132,7 @@ export function transcribeAudioFile(
 ):Promise<AsrTranscriptionResult>;
 ```
 
-`transcribeAudioFile` 复用现有 readiness 检查、local-transcriber、managed runtime、并发锁(`ASR_BUSY`)、取消与输出限制;校验 `audioPath` 在已登记临时目录内(resolve 后判断,拒绝符号链接逃逸)。`transcribeVideoPart` 保持公开行为不变,内部可委托公共执行段,但不得改变 Bilibili 音频下载路径与错误语义。
+`transcribeAudioFile` 复用现有 readiness 检查、local-transcriber、managed runtime、并发锁(`ASR_BUSY`)、取消与输出限制;校验 `audioPath` 位于**任一**已登记临时目录内(ASR `createdAsrTempDirs` 注册表或 `../media/temp.js` 的 `isRegisteredMediaTempDir`,resolve 后判断,拒绝符号链接逃逸;transcription.ts 可 import media/temp.js,反向禁止)。`transcribeVideoPart` 保持公开行为不变,内部可委托公共执行段,但不得改变 Bilibili 音频下载路径与错误语义。
 
 ## 7. 跨模块接线规则(关键)
 
