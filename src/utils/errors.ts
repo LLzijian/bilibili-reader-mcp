@@ -123,6 +123,93 @@ export class CommentsDisabledError extends Error {
 }
 
 /**
+ * Cross-platform media error vocabulary (frozen 2026-11-07).
+ * New platform / media / keyframe / clip code throws one of these so the
+ * MCP layer can map every failure into the structured error system.
+ */
+
+export type PlatformErrorCode =
+  | "UNSUPPORTED_PLATFORM"
+  | "PLATFORM_URL_INVALID"
+  | "PLATFORM_RESOLVE_FAILED"
+  | "DOUYIN_ACCESS_DENIED"
+  | "DOUYIN_CHALLENGE_REQUIRED"
+  | "DOUYIN_VIDEO_UNAVAILABLE"
+  | "DOUYIN_MEDIA_UNAVAILABLE";
+
+export class PlatformError extends Error {
+  constructor(
+    public code: PlatformErrorCode,
+    message: string,
+    public retryable: boolean = false,
+  ) {
+    super(message);
+    this.name = "PlatformError";
+  }
+}
+
+export type MediaErrorCode =
+  | "MEDIA_DOWNLOAD_TIMEOUT"
+  | "MEDIA_DOWNLOAD_FAILED"
+  | "MEDIA_LIMIT_EXCEEDED"
+  | "MEDIA_PROBE_FAILED"
+  | "MEDIA_NO_VIDEO_TRACK"
+  | "MEDIA_NO_AUDIO_TRACK"
+  | "MEDIA_MUX_FAILED"
+  | "MEDIA_CANDIDATES_UNAVAILABLE"
+  | "MEDIA_FAKE_IP_DNS";
+
+export class MediaError extends Error {
+  constructor(
+    public code: MediaErrorCode,
+    message: string,
+    public retryable: boolean = false,
+  ) {
+    super(message);
+    this.name = "MediaError";
+  }
+}
+
+export type KeyframeErrorCode =
+  | "KEYFRAME_NO_VIDEO"
+  | "KEYFRAME_FAILED"
+  | "KEYFRAME_LIMIT_EXCEEDED";
+
+export class KeyframeError extends Error {
+  constructor(
+    public code: KeyframeErrorCode,
+    message: string,
+    public retryable: boolean = false,
+  ) {
+    super(message);
+    this.name = "KeyframeError";
+  }
+}
+
+export type ClipErrorCode =
+  | "CLIP_INVALID_RANGE"
+  | "CLIP_LIMIT_EXCEEDED"
+  | "CLIP_FAILED";
+
+export class ClipError extends Error {
+  constructor(
+    public code: ClipErrorCode,
+    message: string,
+    public retryable: boolean = false,
+  ) {
+    super(message);
+    this.name = "ClipError";
+  }
+}
+
+export class FfmpegUnavailableError extends Error {
+  constructor(message: string = "FFmpeg is unavailable. Install FFmpeg or set BILIBILI_FFMPEG_PATH.") {
+    super(message);
+    this.name = "FfmpegUnavailableError";
+  }
+}
+
+/**
  * 分类错误类型
  */
 export function categorizeError(error: any): Error {
