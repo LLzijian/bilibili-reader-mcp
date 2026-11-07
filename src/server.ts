@@ -17,6 +17,7 @@ import {
 import { runWithOperationSignal } from "./security/operation-context.js";
 
 import { studyPrompt, buildStudyPrompt } from "./server/study-prompt.js";
+import { readVideoPrompt, buildReadVideoPrompt } from "./server/read-video-prompt.js";
 
 const packageJson = JSON.parse(
   fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")
@@ -25,7 +26,7 @@ const packageJson = JSON.parse(
 // 创建 MCP 服务器实例
 export const server = new Server(
   {
-    name: "bilibili-mcp-server",
+    name: "video-reader-mcp-server",
     version: packageJson.version,
   },
   {
@@ -41,10 +42,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: toolSchemas,
 }));
 
-server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [studyPrompt] }));
+server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [studyPrompt, readVideoPrompt] }));
 server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-  if (request.params.name !== studyPrompt.name) throw new Error("Unknown prompt");
-  return buildStudyPrompt(request.params.arguments);
+  if (request.params.name === studyPrompt.name) return buildStudyPrompt(request.params.arguments);
+  if (request.params.name === readVideoPrompt.name) return buildReadVideoPrompt(request.params.arguments);
+  throw new Error("Unknown prompt");
 });
 
 // 注册工具调用处理器

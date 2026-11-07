@@ -5,7 +5,7 @@ description: 结合 B 站完整时间戳字幕与指定时间的原始画面，�
 
 # B 站视频学习
 
-使用 bilibili-reader-mcp 的工具。客户端支持 MCP prompts 时，可调用 study_video，mode 选择 outline 或 report。
+使用 video-reader-mcp 的工具。客户端支持 MCP prompts 时，可调用 study_video，mode 选择 outline 或 report。
 
 1. 用 get_video_info 或 get_video_metadata 确认标题、时长和分集，多分集材料按用户范围逐集处理。
 2. 用 get_video_transcript 读取完整字幕，include_timestamps=true。长结果分时间段读取并检查覆盖范围；query 适合回查，不替代全文。区分人工字幕、平台 AI 字幕、本地 ASR、简介。简介与平台摘要不能代替完整讲解。

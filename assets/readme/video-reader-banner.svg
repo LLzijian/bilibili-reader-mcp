@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="460" viewBox="0 0 1280 460" role="img" aria-labelledby="title desc">
+  <title id="title">Video Reader MCP</title>
+  <desc id="desc">Read the words. See the frames. Keep the moments. Bilibili and Douyin video tools for your agent.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#17213b"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#5eead4"/><stop offset="1" stop-color="#a5b4fc"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#6366f1" stop-opacity=".22"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1280" height="460" rx="24" fill="url(#bg)"/>
+  <ellipse cx="1050" cy="100" rx="400" ry="330" fill="url(#glow)"/>
+  <path d="M64 64H1216" stroke="#334155"/>
+  <circle cx="70" cy="39" r="4" fill="#5eead4"/>
+  <text x="86" y="44" fill="#cbd5e1" font-family="Segoe UI,Arial,sans-serif" font-size="13" letter-spacing="2">VIDEO TOOLS FOR YOUR AGENT</text>
+  <text x="64" y="148" fill="#f8fafc" font-family="Segoe UI,Arial,sans-serif" font-size="64" font-weight="700" letter-spacing="-2">Video Reader MCP</text>
+  <rect x="65" y="173" width="98" height="4" rx="2" fill="url(#accent)"/>
+  <text x="64" y="218" fill="#cbd5e1" font-family="Segoe UI,Arial,sans-serif" font-size="23">Read the words. See the frames. Keep the moments.</text>
+  <text x="66" y="252" fill="#94a3b8" font-family="Segoe UI,Arial,sans-serif" font-size="16">Bilibili + Douyin · Local ASR · Original frames · MP4 clips</text>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <rect x="64" y="301" width="362" height="105" rx="14" fill="#1e293b" stroke="#334155"/>
+    <rect x="459" y="301" width="362" height="105" rx="14" fill="#1e293b" stroke="#334155"/>
+    <rect x="854" y="301" width="362" height="105" rx="14" fill="#1e293b" stroke="#334155"/>
+    <text x="88" y="334" fill="#5eead4" font-size="12" font-weight="700" letter-spacing="2">01 / TRANSCRIPTS</text>
+    <text x="88" y="376" fill="#f1f5f9" font-size="24" font-weight="600">Every word, with time.</text>
+    <text x="483" y="334" fill="#a5b4fc" font-size="12" font-weight="700" letter-spacing="2">02 / KEYFRAMES</text>
+    <text x="483" y="376" fill="#f1f5f9" font-size="24" font-weight="600">Evidence you can see.</text>
+    <text x="878" y="334" fill="#fbbf24" font-size="12" font-weight="700" letter-spacing="2">03 / VIDEO CLIPS</text>
+    <text x="878" y="376" fill="#f1f5f9" font-size="24" font-weight="600">Moments you can keep.</text>
+  </g>
+</svg>

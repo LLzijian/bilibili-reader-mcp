@@ -1,12 +1,13 @@
 {
-  "name": "@llzijian/bilibili-reader-mcp",
+  "name": "@llzijian/video-reader-mcp",
   "version": "0.1.0",
-  "description": "Bilibili reader MCP: timestamped transcripts, original video frames, local speech transcription and comments",
+  "description": "Video Reader MCP: multi-platform video transcripts, original frames, local speech transcription and comments",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
+    "video-reader-mcp": "dist/cli.js",
     "bilibili-mcp": "dist/cli.js",
     "bilibili-reader-mcp": "dist/cli.js",
     "bilibili-study-mcp": "dist/cli.js"
@@ -58,11 +59,11 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LLzijian/bilibili-reader-mcp.git"
+    "url": "https://github.com/LLzijian/video-reader-mcp.git"
   },
-  "homepage": "https://github.com/LLzijian/bilibili-reader-mcp#readme",
+  "homepage": "https://github.com/LLzijian/video-reader-mcp#readme",
   "bugs": {
-    "url": "https://github.com/LLzijian/bilibili-reader-mcp/issues"
+    "url": "https://github.com/LLzijian/video-reader-mcp/issues"
   },
   "engines": {
     "node": ">=20.0.0"

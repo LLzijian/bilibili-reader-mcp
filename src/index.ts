@@ -12,7 +12,7 @@ export default server;
 async function main() {
   const transport = new BoundedStdioServerTransport();
   await server.connect(transport);
-  console.error("Bilibili MCP server running on stdio");
+  console.error("Video Reader MCP server running on stdio");
 }
 
 // 检查是否作为主模块运行

@@ -30,10 +30,10 @@ describe("credential guidance", () => {
     expect(result.title).toBe("Bilibili credential setup");
     expect(result.title_zh).toBe("Bilibili 凭证配置");
     expect(result.recommended_commands).toContain(
-      "bilibili-reader-mcp config",
+      "video-reader-mcp config",
     );
     expect(result.recommended_commands).toContain(
-      "bilibili-reader-mcp check",
+      "video-reader-mcp check",
     );
     expect(result.required_cookie_fields).toEqual([
       "SESSDATA",
@@ -53,14 +53,14 @@ describe("credential guidance", () => {
 
   it("returns reusable next steps for credential errors", () => {
     expect(buildCredentialNextSteps()).toEqual([
-      "Run: bilibili-reader-mcp config",
-      "Then run: bilibili-reader-mcp check",
+      "Run: video-reader-mcp config",
+      "Then run: video-reader-mcp check",
       "Do not paste Cookie values into MCP client config files.",
     ]);
     expect(buildCredentialNextStepsEn()).toEqual(buildCredentialNextSteps());
     expect(buildCredentialNextStepsZh()).toEqual([
-      "运行：bilibili-reader-mcp config",
-      "然后运行：bilibili-reader-mcp check",
+      "运行：video-reader-mcp config",
+      "然后运行：video-reader-mcp check",
       "不要把 Cookie 值粘贴到 MCP 客户端配置文件中。",
     ]);
   });
@@ -92,11 +92,11 @@ describe("credential status", () => {
     expect(result.source).toBe("none");
     expect(result.logged_in).toBe(false);
     expect(result.next_steps).toContain(
-      "Run: bilibili-reader-mcp config",
+      "Run: video-reader-mcp config",
     );
     expect(result.next_steps_en).toEqual(result.next_steps);
     expect(result.next_steps_zh).toContain(
-      "运行：bilibili-reader-mcp config",
+      "运行：video-reader-mcp config",
     );
     expect(result.security_notes_zh).toContain(
       "此响应永远不会包含原始 Cookie 值。",

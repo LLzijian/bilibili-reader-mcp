@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { config } from "../config.js";
+import { isRegisteredMediaTempDir } from "../media/temp.js";
 import { readLocalTranscriber, type LocalTranscriberConfig } from "./local-transcriber.js";
 import {
   getPlaybackAudioSet,
@@ -887,8 +888,6 @@ export async function transcribeVideoPart(
   }
   activeTranscriptions += 1;
 
-  const getPaths = dependencies.getPaths ?? (() => deriveAsrPaths());
-  const getState = dependencies.getState ?? ((stateFile: string) => readAsrState(stateFile));
   const getPlayback = dependencies.getPlayback ??
     (
       async (bvid: string, cid: number, operationSignal?: AbortSignal) =>
@@ -915,6 +914,41 @@ export async function transcribeVideoPart(
         operationSignal,
       )
     );
+  let tempDir: string | undefined;
+
+  try {
+    assertDuration(request.durationSeconds);
+    throwIfAborted(signal);
+    const execute = await prepareAudioExecutor(dependencies, signal);
+    const playback = await getPlayback(request.bvid, request.cid, signal);
+    throwIfAborted(signal);
+    if (playback.durationSeconds !== undefined) {
+      assertDuration(playback.durationSeconds);
+    }
+    if (playback.candidates.length === 0) {
+      return null;
+    }
+
+    tempDir = await createTempDir(ASR_TEMP_PREFIX);
+    throwIfAborted(signal);
+    const audioPath = path.join(tempDir, "audio.m4a");
+    await downloadAudio(playback.candidates, audioPath, signal);
+    throwIfAborted(signal);
+    return await execute(audioPath);
+  } finally {
+    try {
+      if (tempDir !== undefined) {
+        await removeTempDir(tempDir);
+      }
+    } finally {
+      activeTranscriptions -= 1;
+    }
+  }
+}
+
+async function prepareAudioExecutor(dependencies: AsrTranscriptionDependencies, signal?: AbortSignal): Promise<(audioPath: string) => Promise<AsrTranscriptionResult>> {
+  const getPaths = dependencies.getPaths ?? (() => deriveAsrPaths());
+  const getState = dependencies.getState ?? ((stateFile: string) => readAsrState(stateFile));
   const runRuntime = dependencies.runRuntime ??
     (
       async (
@@ -931,59 +965,42 @@ export async function transcribeVideoPart(
       )
     );
   const migrateLegacyState = dependencies.migrateLegacyState ?? migrateLegacyAsrState;
-  let tempDir: string | undefined;
-
-  try {
-    assertDuration(request.durationSeconds);
-    throwIfAborted(signal);
-    const local = (dependencies.getLocalTranscriber ?? readLocalTranscriber)();
-    const paths = getPaths();
-    let executionProfile: AsrExecutionProfile | undefined;
-    if (!local) {
-      const state = getState(paths.stateFile);
-      if (state.kind !== "ready") {
-        throw new AsrError(
-          "ASR_NOT_READY",
-          "Local ASR is not ready. Run `bilibili-reader-mcp setup`, then inspect `doctor --json`.",
-        );
-      }
-      executionProfile = state.executionProfile !== undefined &&
-        state.deviceReadiness === "ready" &&
-        state.migrationStatus === "completed"
-        ? resolveExecutionProfile(
-            state.executionProfile.device,
-            state.executionProfile.computeType,
-          )
-        : undefined;
-      if (
-        executionProfile === undefined &&
-        state.executionProfile === undefined &&
-        state.deviceReadiness === "migration_pending" &&
-        state.migrationStatus === "pending"
-      ) {
-        executionProfile = await migrateLegacyState(paths, state, signal);
-        throwIfAborted(signal);
-      }
-      if (executionProfile === undefined) {
-        throw new AsrError(
-          "ASR_NOT_READY",
-          "Local ASR has no verified execution profile. Run setup, then inspect doctor --json.",
-        );
-      }
+  const local = (dependencies.getLocalTranscriber ?? readLocalTranscriber)();
+  const paths = getPaths();
+  let executionProfile: AsrExecutionProfile | undefined;
+  if (!local) {
+    const state = getState(paths.stateFile);
+    if (state.kind !== "ready") {
+      throw new AsrError(
+        "ASR_NOT_READY",
+        "Local ASR is not ready. Run `video-reader-mcp setup`, then inspect `doctor --json`.",
+      );
     }
-    const playback = await getPlayback(request.bvid, request.cid, signal);
-    throwIfAborted(signal);
-    if (playback.durationSeconds !== undefined) {
-      assertDuration(playback.durationSeconds);
+    executionProfile = state.executionProfile !== undefined &&
+      state.deviceReadiness === "ready" &&
+      state.migrationStatus === "completed"
+      ? resolveExecutionProfile(
+          state.executionProfile.device,
+          state.executionProfile.computeType,
+        )
+      : undefined;
+    if (
+      executionProfile === undefined &&
+      state.executionProfile === undefined &&
+      state.deviceReadiness === "migration_pending" &&
+      state.migrationStatus === "pending"
+    ) {
+      executionProfile = await migrateLegacyState(paths, state, signal);
+      throwIfAborted(signal);
     }
-    if (playback.candidates.length === 0) {
-      return null;
+    if (executionProfile === undefined) {
+      throw new AsrError(
+        "ASR_NOT_READY",
+        "Local ASR has no verified execution profile. Run setup, then inspect doctor --json.",
+      );
     }
-
-    tempDir = await createTempDir(ASR_TEMP_PREFIX);
-    throwIfAborted(signal);
-    const audioPath = path.join(tempDir, "audio.m4a");
-    await downloadAudio(playback.candidates, audioPath, signal);
+  }
+  return async (audioPath: string) => {
     throwIfAborted(signal);
     if (local) {
       return await (dependencies.runLocalRuntime ?? runAsrCommand)(local.command,
@@ -996,13 +1013,60 @@ export async function transcribeVideoPart(
       executionProfile!,
       signal,
     );
-  } finally {
-    try {
-      if (tempDir !== undefined) {
-        await removeTempDir(tempDir);
-      }
-    } finally {
-      activeTranscriptions -= 1;
-    }
+  };
+}
+
+export interface LocalAudioTranscriptionRequest {
+  audioPath: string;
+  durationSeconds: number;
+}
+
+async function validateLocalAudioPath(input: string): Promise<string> {
+  const refused = () => new AsrError("ASR_TRANSCRIPTION_FAILED", "Refused an unsafe local audio path.");
+  if (typeof input !== "string" || !input || input.includes("\0")) throw refused();
+  const target = path.resolve(input);
+  let current = target;
+  let root: string | undefined;
+  while (path.dirname(current) !== current) {
+    current = path.dirname(current);
+    if (createdAsrTempDirs.has(current) || isRegisteredMediaTempDir(current)) { root = current; break; }
   }
+  if (!root) throw refused();
+  try {
+    current = target;
+    while (true) {
+      const stat = await fs.promises.lstat(current);
+      if (stat.isSymbolicLink() || (current === target ? !stat.isFile() : !stat.isDirectory())) throw refused();
+      if (current === root) break;
+      current = path.dirname(current);
+    }
+    const realRoot = await fs.promises.realpath(root);
+    const realTarget = await fs.promises.realpath(target);
+    const relative = path.relative(realRoot, realTarget);
+    if (!relative || relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) throw refused();
+    const stat = await fs.promises.stat(realTarget);
+    if (stat.size <= 0 || stat.size > MAX_ASR_AUDIO_BYTES) throw new AsrError("ASR_LIMIT_EXCEEDED", "Local audio size exceeded its limit.");
+    return realTarget;
+  } catch (error) {
+    if (error instanceof AsrError) throw error;
+    throw refused();
+  }
+}
+
+export async function transcribeAudioFile(
+  request: LocalAudioTranscriptionRequest,
+  dependencies: AsrTranscriptionDependencies = {},
+  callerSignal?: AbortSignal,
+): Promise<AsrTranscriptionResult> {
+  const signal = getOperationSignal(callerSignal);
+  throwIfAborted(signal);
+  if (activeTranscriptions >= 1) throw new AsrError("ASR_BUSY", "Another ASR transcription is already active. Retry after it finishes.", true);
+  activeTranscriptions++;
+  try {
+    assertDuration(request.durationSeconds);
+    const audioPath = await validateLocalAudioPath(request.audioPath);
+    throwIfAborted(signal);
+    const execute = await prepareAudioExecutor(dependencies, signal);
+    return await execute(audioPath);
+  } finally { activeTranscriptions--; }
 }

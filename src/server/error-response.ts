@@ -71,7 +71,7 @@ export function toErrorTextContent(payload: unknown) {
   return result;
 }
 
-function assertBoundedToolResult(result: unknown): void {
+export function assertBoundedToolResult(result: unknown): void {
   if (
     Buffer.byteLength(JSON.stringify(result), "utf8") >
     SECURITY_LIMITS.mcpResponseBytes

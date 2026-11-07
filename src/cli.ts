@@ -101,10 +101,10 @@ function reportAsrSetupResult(
       );
       console.log("   已验证 CPU INT8，可以继续使用 ASR；也可以修复 GPU 环境后重新运行 setup。");
       console.log(`   若要启用 GPU：${actionForAsrFailure(result.failureCategory, "cuda")}。`);
-      console.log("   bilibili-reader-mcp 不会自动安装或修改 NVIDIA 驱动、CUDA、cuBLAS、cuDNN、PATH 或 LD_LIBRARY_PATH。");
+      console.log("   video-reader-mcp 不会自动安装或修改 NVIDIA 驱动、CUDA、cuBLAS、cuDNN、PATH 或 LD_LIBRARY_PATH。");
     }
     console.log("   管理路径：~/.bilibili-mcp/asr/");
-    console.log("   运行 bilibili-reader-mcp doctor --json 可查看 ASR 状态。");
+    console.log("   运行 video-reader-mcp doctor --json 可查看 ASR 状态。");
     return true;
   }
 
@@ -127,7 +127,7 @@ function reportAsrSetupResult(
       );
       console.log(`   处理方法：${actionForAsrFailure(result.failureCategory, failureDevice)}。`);
     }
-    console.log("   bilibili-reader-mcp 不会自动安装或修改 NVIDIA 驱动、CUDA、cuBLAS、cuDNN、PATH 或 LD_LIBRARY_PATH。");
+    console.log("   video-reader-mcp 不会自动安装或修改 NVIDIA 驱动、CUDA、cuBLAS、cuDNN、PATH 或 LD_LIBRARY_PATH。");
     if (requestedDevice === "cuda") {
       console.log("   你选择了 cuda，因此没有回退到 CPU；已有已验证配置（如有）保持不变。");
       console.log("   你可以修复 GPU 环境后重新运行 setup 并重新选择 cuda，或重新运行 setup 选择 cpu。");
@@ -207,7 +207,7 @@ export function parseDeviceChoice(input: string): AsrDevicePreference | null {
 async function startServer() {
   const transport = new BoundedStdioServerTransport();
   await server.connect(transport);
-  console.error("Bilibili MCP server running on stdio");
+  console.error("Video Reader MCP server running on stdio");
 }
 
 // Configure credentials
@@ -245,7 +245,7 @@ export async function configureCredentials(
     console.log(`   ${GLOBAL_CONFIG_FILE}`);
     console.log("");
     console.log("下次启动 MCP 服务器时将自动加载此凭证，无需重新配置。");
-    console.log("⚠️  如需更新凭证，请重新运行 bilibili-reader-mcp config");
+    console.log("⚠️  如需更新凭证，请重新运行 video-reader-mcp config");
     return true;
   } catch (error) {
     console.error("配置失败：", redactSecrets(error));
@@ -267,7 +267,7 @@ function checkConfig() {
     console.log("配置状态：未配置");
     console.log("");
     console.log("请使用以下方法之一配置凭证：");
-    console.log("1. bilibili-reader-mcp setup");
+    console.log("1. video-reader-mcp setup");
     console.log("2. 设置环境变量");
     console.log("3. 创建 .env 文件");
   }
@@ -400,8 +400,8 @@ export function buildDoctorStatus(
     next_steps: isReady
       ? []
       : [
-          "Run: bilibili-reader-mcp setup",
-          "Then run: bilibili-reader-mcp check",
+          "Run: video-reader-mcp setup",
+          "Then run: video-reader-mcp check",
         ],
   };
 }
@@ -584,7 +584,7 @@ export async function setupCredentials(
   if (options.asrModel !== undefined && !options.nonInteractive) {
     console.error("Error: --asr-model requires --non-interactive.");
     console.error(
-      "Run: bilibili-reader-mcp setup --non-interactive --asr-model <tiny|base|small>",
+      "Run: video-reader-mcp setup --non-interactive --asr-model <tiny|base|small>",
     );
     process.exitCode = 1;
     return;
@@ -610,7 +610,7 @@ export async function setupCredentials(
         "Error: setup --non-interactive requires loadable credentials from environment variables or the global config file.",
       );
       console.error(
-        "Set BILIBILI_SESSDATA, BILIBILI_BILI_JCT, and BILIBILI_DEDEUSERID, or run 'bilibili-reader-mcp setup' once interactively.",
+        "Set BILIBILI_SESSDATA, BILIBILI_BILI_JCT, and BILIBILI_DEDEUSERID, or run 'video-reader-mcp setup' once interactively.",
       );
       process.exitCode = 1;
       return;
@@ -635,10 +635,10 @@ export async function setupCredentials(
       "Error: setup requires an interactive terminal (TTY).",
     );
     console.error(
-      "For non-interactive local status, use: bilibili-reader-mcp doctor --json",
+      "For non-interactive local status, use: video-reader-mcp doctor --json",
     );
     console.error(
-      "To configure credentials interactively, run: bilibili-reader-mcp setup",
+      "To configure credentials interactively, run: video-reader-mcp setup",
     );
     process.exit(1);
   }
@@ -734,9 +734,9 @@ export async function setupCredentials(
 
 export function createCli() {
   const cli = new Command()
-    .name("bilibili-reader-mcp")
+    .name("video-reader-mcp")
     .version(packageJson.version, "-V, --version")
-    .description("B 站视频阅读器 - 字幕、关键画面、语音转写与评论读取")
+    .description("Video Reader MCP - 多平台视频阅读器：字幕、关键画面、语音转写与评论读取")
     .option("-v", "输出版本号");
 
   cli.on("option:v", () => {

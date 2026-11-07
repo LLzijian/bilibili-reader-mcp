@@ -28,9 +28,9 @@ describe("MCP tool list baseline", () => {
   beforeAll(async () => {
     toolsResult = await getListToolsResult();
   });
-  it("exposes all 12 tools", () => {
+  it("exposes the 12 existing tools and 2 video processing tools", () => {
     const names = toolsResult.tools.map((t) => t.name);
-    expect(names).toHaveLength(12);
+    expect(names).toHaveLength(14);
     expect(names).toContain("get_credential_setup_instructions");
     expect(names).toContain("check_bilibili_credentials");
     expect(names).toContain("check_mcp_update");
@@ -59,6 +59,8 @@ describe("MCP tool list baseline", () => {
       "search_bilibili_creators",
       "get_video_frames",
       "get_bilibili_creator_content",
+      "get_video_keyframes",
+      "extract_video_clips",
     ]);
   });
 
@@ -83,6 +85,8 @@ describe("MCP tool list baseline", () => {
       search_bilibili_creators: ["query"],
       get_video_frames: ["bvid_or_url", "timestamps"],
       get_bilibili_creator_content: ["mid", "section"],
+      get_video_keyframes: ["url"],
+      extract_video_clips: ["url", "clips"],
     });
   });
 
@@ -346,6 +350,8 @@ describe("MCP tool list baseline", () => {
         type: "object",
         properties: {
           bvid: { type: "string" },
+          platform: { type: "string", enum: ["bilibili", "douyin"] },
+          video_id: { type: "string" },
           data_source: {
             type: "string",
             enum: ["subtitle", "ai_subtitle", "description", "asr"],
@@ -380,7 +386,8 @@ describe("MCP tool list baseline", () => {
             },
           },
         },
-        required: ["bvid", "data_source", "transcript", "title", "source_url"],
+        required: ["data_source", "transcript", "title", "source_url"],
+        anyOf: [{ required: ["bvid"] }, { required: ["platform", "video_id"] }],
       });
     });
   });

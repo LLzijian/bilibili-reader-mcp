@@ -1,3 +1,7 @@
+import { detectPlatform, resolveVideoSource } from "../platforms/registry.js";
+import { validateKeyframeOptions } from "../media/keyframes.js";
+import { validateClipRanges } from "../media/clips.js";
+import { createVideoClips, readDouyinFrames, readDouyinTranscript, readVideoKeyframes } from "./video-services.js";
 import { getVideoChaptersData } from "../bilibili/chapters.js";
 import { getVideoCommentsData } from "../bilibili/comments.js";
 import { getBilibiliCreatorContent } from "../bilibili/creator-content.js";
@@ -60,8 +64,23 @@ const KNOWN_TOOL_NAMES = new Set([
   "search_bilibili_videos",
   "search_bilibili_creators",
   "get_video_frames",
+  "get_video_keyframes",
+  "extract_video_clips",
   "get_bilibili_creator_content",
 ]);
+
+function isDouyinInput(input: unknown): input is string {
+  return typeof input === "string" && Buffer.byteLength(input, "utf8") <= 8192 && detectPlatform(input) === "douyin";
+}
+
+function validateVideoToolArguments(args: ToolArgs, keys: readonly string[]): asserts args is Record<string, unknown> & { url: string } {
+  if (!args || Array.isArray(args) || Object.keys(args).some((key) => !keys.includes(key))) {
+    throw new ValidationError("Invalid or unsupported video tool arguments");
+  }
+  if (typeof args.url !== "string" || args.url.length === 0 || Buffer.byteLength(args.url, "utf8") > 8192) {
+    throw new ValidationError("url must be a supported video link of at most 8192 bytes");
+  }
+}
 
 export async function handleToolCall(
   name: string,
@@ -157,9 +176,10 @@ export async function handleToolCall(
 
       let sanitizedBvidOrUrl: string;
       try {
-        validateBVInput(bvidOrUrl);
+        if (!isDouyinInput(bvidOrUrl)) validateBVInput(bvidOrUrl);
         validateLanguage(preferredLang);
         validatePage(page);
+        if (isDouyinInput(bvidOrUrl) && page !== undefined) throw new ValidationError("page is only supported for Bilibili");
         validateBoolean(args?.fallback_to_description, "fallback_to_description");
         validateBoolean(args?.fallback_to_asr, "fallback_to_asr");
         validateBoolean(includeTimestamps, "include_timestamps");
@@ -169,7 +189,7 @@ export async function handleToolCall(
         validateQuery(query);
         validateMaxMatches(maxMatches);
         validateContextSegments(contextSegments);
-        sanitizedBvidOrUrl = sanitizeBVInput(bvidOrUrl);
+        sanitizedBvidOrUrl = isDouyinInput(bvidOrUrl) ? bvidOrUrl : sanitizeBVInput(bvidOrUrl);
       } catch (error) {
         return toErrorTextContent(buildValidationErrorPayload(error));
       }
@@ -185,6 +205,12 @@ export async function handleToolCall(
         : undefined;
 
       try {
+        if (isDouyinInput(sanitizedBvidOrUrl)) {
+          if (!fallbackToAsr && !forceAsr) return toErrorTextContent(buildStructuredErrorPayload(new NoSubtitleError(), { platform: "douyin" }));
+          return toStructuredContent(await readDouyinTranscript(sanitizedBvidOrUrl, {
+            includeTimestamps, startSeconds, endSeconds, query: query?.trim(), maxMatches, contextSegments,
+          }, signal));
+        }
         const transcriptArgs = [
           sanitizedBvidOrUrl,
           normalizedLang,
@@ -218,6 +244,15 @@ export async function handleToolCall(
 
     case "get_video_metadata": {
       const bvidOrUrl = args?.bvid_or_url as string;
+      if (isDouyinInput(bvidOrUrl)) {
+        if (args?.page !== undefined) return toErrorTextContent(buildValidationErrorPayload(new ValidationError("page is only supported for Bilibili")));
+        const source = await resolveVideoSource(bvidOrUrl, signal);
+        return toStructuredContent({
+          platform: source.platform, video_id: source.videoId, source_url: source.canonicalUrl,
+          title: source.title, author: source.author, duration_seconds: source.durationSeconds,
+          ...(source.coverUrl === undefined ? {} : { cover_url: source.coverUrl }),
+        });
+      }
 
       let sanitizedBvidOrUrl: string;
       try {
@@ -294,13 +329,45 @@ export async function handleToolCall(
 
     case "get_video_frames": {
       try {
-        validateBVInput(args?.bvid_or_url);
+        if (!isDouyinInput(args?.bvid_or_url)) validateBVInput(args?.bvid_or_url);
         validatePage(args?.page);
+        if (isDouyinInput(args?.bvid_or_url) && args?.page !== undefined) throw new ValidationError("page is only supported for Bilibili");
         validateFrameTimestamps(args?.timestamps);
       } catch (error) {
         return toErrorTextContent(buildValidationErrorPayload(error));
       }
+      if (isDouyinInput(args?.bvid_or_url)) return readDouyinFrames(args.bvid_or_url, args.timestamps as number[], signal);
       return await getVideoFrames(sanitizeBVInput(args!.bvid_or_url as string), args!.timestamps as number[], args?.page as number | undefined, signal);
+    }
+
+    case "get_video_keyframes": {
+      try {
+        validateVideoToolArguments(args, ["url", "max_frames", "strategy"]);
+      } catch (error) {
+        return toErrorTextContent(buildValidationErrorPayload(error));
+      }
+      const options = validateKeyframeOptions({ maxFrames: args!.max_frames, strategy: args!.strategy });
+      return readVideoKeyframes(args!.url as string, options, signal);
+    }
+
+    case "extract_video_clips": {
+      try {
+        validateVideoToolArguments(args, ["url", "clips"]);
+        if (!Array.isArray(args.clips) || args.clips.some((clip) =>
+          !clip || typeof clip !== "object" || Array.isArray(clip) ||
+          Object.keys(clip).some((key) => !["start_seconds", "end_seconds", "label"].includes(key)))) {
+          throw new ValidationError("clips must contain only start_seconds, end_seconds and optional label");
+        }
+      } catch (error) {
+        return toErrorTextContent(buildValidationErrorPayload(error));
+      }
+      const ranges = (args!.clips as Array<Record<string, unknown>>).map((clip) => ({
+        startSeconds: clip.start_seconds, endSeconds: clip.end_seconds, label: clip.label,
+      }));
+      // Complete count, numeric and total-duration checks before platform I/O;
+      // validate again against the resolved and probed source durations later.
+      const clips = validateClipRanges(ranges, 7200);
+      return toStructuredContent(await createVideoClips(args!.url as string, clips, signal));
     }
 
     case "get_bilibili_creator_content": {

@@ -46,7 +46,7 @@ describe("MCP stdio entrypoint", () => {
 
     const stderrChunks: Buffer[] = [];
     const stdoutChunks: Buffer[] = [];
-    const READY_SIGNAL = "Bilibili MCP server running on stdio";
+    const READY_SIGNAL = "Video Reader MCP server running on stdio";
     const TIMEOUT_MS = 3_000;
 
     child.stdout.on("data", (chunk) => {
@@ -180,6 +180,8 @@ describe("MCP stdio entrypoint", () => {
         "search_bilibili_creators",
         "get_video_frames",
         "get_bilibili_creator_content",
+        "get_video_keyframes",
+        "extract_video_clips",
       ]);
 
       send({
@@ -258,8 +260,8 @@ describe("MCP stdio entrypoint", () => {
     const stdout = Buffer.concat(stdoutChunks).toString("utf8");
     const stderr = Buffer.concat(stderrChunks).toString("utf8");
     expect(() => stdout.trim().split(/\r?\n/).forEach((line) => JSON.parse(line))).not.toThrow();
-    expect(stderr).toContain("Bilibili MCP server running on stdio");
-    expect(stdout).not.toContain("Bilibili MCP server running on stdio");
+    expect(stderr).toContain("Video Reader MCP server running on stdio");
+    expect(stdout).not.toContain("Video Reader MCP server running on stdio");
   });
 
   it("lists all public tools through the registered MCP handler", async () => {
@@ -286,6 +288,8 @@ describe("MCP stdio entrypoint", () => {
       "search_bilibili_creators",
       "get_video_frames",
       "get_bilibili_creator_content",
+      "get_video_keyframes",
+      "extract_video_clips",
     ]);
   });
 
@@ -296,7 +300,7 @@ describe("MCP stdio entrypoint", () => {
 
     const stderrChunks: Buffer[] = [];
     const stdoutChunks: Buffer[] = [];
-    const READY_SIGNAL = "Bilibili MCP server running on stdio";
+    const READY_SIGNAL = "Video Reader MCP server running on stdio";
     const TIMEOUT_MS = 3_000;
 
     child.stdout.on("data", (chunk) => {
@@ -445,6 +449,7 @@ describe("MCP stdio entrypoint", () => {
     const info = (server as unknown as ServerWithInfo)._serverInfo;
 
     expect(info).toBeDefined();
+    expect(info!.name).toBe("video-reader-mcp-server");
     expect(info!.version).toBe(pkg.version);
   });
 });

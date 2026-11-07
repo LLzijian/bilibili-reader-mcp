@@ -64,7 +64,7 @@ async function verifyLoginForEmptySubtitles(bvid: string): Promise<void> {
   const { isLogin } = await checkLoginStatus();
   if (!isLogin) {
     throw new BilibiliAPIError(
-      `Video ${bvid} returned an empty subtitle list and current Bilibili credentials are not logged in. Run "bilibili-reader-mcp config", then "bilibili-reader-mcp check", or update environment variables.`,
+      `Video ${bvid} returned an empty subtitle list and current Bilibili credentials are not logged in. Run "video-reader-mcp config", then "video-reader-mcp check", or update environment variables.`,
       'COOKIE_EXPIRED',
       undefined,
       { code: -101, bvid }
@@ -129,7 +129,7 @@ function formatTimestamp(seconds: number): string {
  * end-only: segments where from <= endSeconds
  * both: overlap (to >= startSeconds AND from <= endSeconds)
  */
-function filterSegmentsByRange(
+export function filterSegmentsByRange(
   body: SubtitleBodyItem[],
   startSeconds?: number,
   endSeconds?: number,
@@ -144,7 +144,7 @@ function filterSegmentsByRange(
 /**
  * 合并字幕内容为文本
  */
-function mergeSubtitleText(
+export function mergeSubtitleText(
   body: SubtitleBodyItem[],
   includeTimestamps?: boolean,
 ): string {
@@ -176,7 +176,7 @@ function mergeSubtitleText(
 /**
  * 在过滤后的字幕段中搜索关键词，返回 Transcript Match 列表和紧凑 transcript。
  */
-function searchTranscript(
+export function searchTranscript(
   body: SubtitleBodyItem[],
   query: string,
   maxMatches: number,
@@ -186,7 +186,7 @@ function searchTranscript(
     transcript: string,
     matches: TranscriptMatch[],
     totalMatches: number,
-  ) => VideoTranscriptData,
+  ) => unknown,
 ): {
   matches: TranscriptMatch[];
   totalMatches: number;

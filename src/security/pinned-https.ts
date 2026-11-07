@@ -210,7 +210,27 @@ export interface PinnedHttpsFetchOptions {
   request?: typeof https.request;
 }
 
-export async function pinnedHttpsFetch(
+export interface PinnedHttpsPolicy {
+  allowedHostSuffixes: readonly string[];
+  allowPublicDnsFallback?: boolean;
+}
+
+export function createPinnedHttpsFetch(policy: PinnedHttpsPolicy): (
+  input: string | URL | Request,
+  init?: RequestInit,
+  options?: PinnedHttpsFetchOptions,
+) => Promise<Response> {
+  const suffixes = [...policy.allowedHostSuffixes];
+  const allowPublicDnsFallback = policy.allowPublicDnsFallback === true;
+  if (!suffixes.length || suffixes.some((suffix) => !/^\.[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(suffix))) {
+    throw new TypeError("Pinned HTTPS policy requires normalized host suffixes");
+  }
+  return (input, init, options) => fetchWithPolicy(suffixes, allowPublicDnsFallback, input, init, options);
+}
+
+async function fetchWithPolicy(
+  suffixes: readonly string[],
+  allowPublicDnsFallback: boolean,
   input: string | URL | Request,
   init: RequestInit = {},
   options: PinnedHttpsFetchOptions = {},
@@ -223,12 +243,7 @@ export async function pinnedHttpsFetch(
     url.port !== "" ||
     url.username !== "" ||
     url.password !== "" ||
-    !(
-      url.hostname.toLowerCase() === "bilivideo.com" ||
-      url.hostname.toLowerCase().endsWith(".bilivideo.com") ||
-      url.hostname.toLowerCase() === "bilivideo.cn" ||
-      url.hostname.toLowerCase().endsWith(".bilivideo.cn")
-    )
+    !suffixes.some((suffix) => url.hostname === suffix.slice(1) || url.hostname.endsWith(suffix))
   ) {
     throw new Error("Pinned HTTPS requires an approved media URL");
   }
@@ -240,7 +255,9 @@ export async function pinnedHttpsFetch(
   const signal =
     init.signal ?? (input instanceof Request ? input.signal : undefined);
   throwIfAborted(signal ?? undefined);
-  const mode = process.env.BILIBILI_MEDIA_DNS ?? "system";
+  // This environment option belongs to the Bilibili policy. Other
+  // platforms keep system DNS and must never opt into public DoH implicitly.
+  const mode = allowPublicDnsFallback ? (process.env.BILIBILI_MEDIA_DNS ?? "system") : "system";
   if (!["system", "cloudflare"].includes(mode)) throw new Error("Unsupported BILIBILI_MEDIA_DNS mode");
   const resolver = options.resolver ?? (mode === "cloudflare"
     ? (hostname: string) => queryPublicMediaDns(hostname, signal ?? undefined)
@@ -328,3 +345,8 @@ export async function pinnedHttpsFetch(
     request.end();
   });
 }
+
+export const pinnedHttpsFetch = createPinnedHttpsFetch({
+  allowedHostSuffixes: [".bilivideo.com", ".bilivideo.cn"],
+  allowPublicDnsFallback: true,
+});

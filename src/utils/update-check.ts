@@ -10,7 +10,7 @@ import {
 import { parseBoundedJsonResponse } from "./bounded-response.js";
 import { ResourceLimitError } from "./errors.js";
 
-const PACKAGE_NAME = "@llzijian/bilibili-reader-mcp";
+const PACKAGE_NAME = "@llzijian/video-reader-mcp";
 const LOCAL_ENTRY = fileURLToPath(new URL("../index.js", import.meta.url));
 const LOCAL_CLI = fileURLToPath(new URL("../cli.js", import.meta.url));
 const NPM_LATEST_URL = `https://registry.npmjs.org/${encodeURIComponent(PACKAGE_NAME)}/latest`;
@@ -128,6 +128,17 @@ async function fetchPackageUpdateInfo(
       signal: controller.signal,
     });
 
+    if (response.status === 404) {
+      return {
+        ...baseInfo,
+        latest_version: null,
+        update_available: null,
+        notes: [...baseInfo.notes, "This package is not published on npm; update the source checkout."],
+        notes_en: [...baseInfo.notes_en, "This package is not published on npm; update the source checkout."],
+        notes_zh: [...baseInfo.notes_zh, "此包尚未发布到 npm；请更新源码工作区。"],
+      };
+    }
+
     if (!response.ok) {
       throw new Error(`npm registry returned HTTP ${response.status}`);
     }
@@ -160,15 +171,15 @@ async function fetchPackageUpdateInfo(
       update_available: null,
       notes: [
         ...baseInfo.notes,
-        "Could not reach the npm registry; retry later or run npm view @llzijian/bilibili-reader-mcp version.",
+        "Could not reach the npm registry; retry later or run npm view @llzijian/video-reader-mcp version.",
       ],
       notes_en: [
         ...baseInfo.notes_en,
-        "Could not reach the npm registry; retry later or run npm view @llzijian/bilibili-reader-mcp version.",
+        "Could not reach the npm registry; retry later or run npm view @llzijian/video-reader-mcp version.",
       ],
       notes_zh: [
         ...baseInfo.notes_zh,
-        "无法连接 npm registry；请稍后重试，或运行 npm view @llzijian/bilibili-reader-mcp version。",
+        "无法连接 npm registry；请稍后重试，或运行 npm view @llzijian/video-reader-mcp version。",
       ],
     };
   } finally {

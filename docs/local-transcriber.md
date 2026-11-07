@@ -35,7 +35,7 @@ examples/moss_adapter.py 可将已有 moss-transcribe 的 batch.py 输出的 SRT
 {
   "command":"/absolute/path/to/python",
   "args":[
-    "/absolute/path/to/bilibili-reader-mcp/examples/moss_adapter.py",
+    "/absolute/path/to/video-reader-mcp/examples/moss_adapter.py",
     "--script","/absolute/path/to/moss-transcribe/scripts/batch.py",
     "--settings","/absolute/path/to/moss-settings.json",
     "--audio","{audio}"

@@ -2,6 +2,11 @@ import {
   AsrError,
   BilibiliAPIError,
   CommentsDisabledError,
+  PlatformError,
+  MediaError,
+  KeyframeError,
+  ClipError,
+  FfmpegUnavailableError,
   NetworkError,
   NoSubtitleError,
   PaidVideoError,
@@ -65,6 +70,7 @@ export interface StructuredErrorPayload {
 
 export interface StructuredErrorContext {
   fallbackToDescriptionAvailable?: boolean;
+  platform?: "bilibili" | "douyin";
 }
 
 function withCompatibilityNextSteps(
@@ -80,6 +86,79 @@ function safeValidationMessage(error: unknown): string {
   if (!(error instanceof Error) || !error.message) return "Invalid input";
   const redacted = redactSecrets(error.message);
   return boundedRemoteText(redacted, 512) || "Invalid input";
+}
+
+interface VideoErrorGuidance {
+  category: StructuredErrorCategory;
+  messageEn: string;
+  messageZh: string;
+  stepEn: string;
+  stepZh: string;
+}
+
+// Use controlled messages: upstream parser/process errors can contain signed
+// media URLs or credentials, so their original messages must stay out of MCP.
+function videoErrorGuidance(code: string): VideoErrorGuidance {
+  if (code === "FFMPEG_UNAVAILABLE") return {
+    category: "runtime", messageEn: "FFmpeg or ffprobe is unavailable.",
+    messageZh: "FFmpeg 或 ffprobe 不可用。",
+    stepEn: "Install FFmpeg and ffprobe; check BILIBILI_FFMPEG_PATH and BILIBILI_FFPROBE_PATH.",
+    stepZh: "请安装 FFmpeg 和 ffprobe，并检查 BILIBILI_FFMPEG_PATH 与 BILIBILI_FFPROBE_PATH。",
+  };
+  if (code === "UNSUPPORTED_PLATFORM" || code === "PLATFORM_URL_INVALID") return {
+    category: "validation", messageEn: "The video link is invalid or its platform is unsupported.",
+    messageZh: "视频链接无效或平台不受支持。",
+    stepEn: "Provide a supported Bilibili or Douyin video link.",
+    stepZh: "请提供支持的 Bilibili 或抖音视频链接。",
+  };
+  if (code === "DOUYIN_ACCESS_DENIED" || code === "DOUYIN_CHALLENGE_REQUIRED") return {
+    category: "access", messageEn: "Douyin requires access confirmation or verification.",
+    messageZh: "抖音要求确认访问权限或完成验证。",
+    stepEn: "Open the video on Douyin and confirm access; complete any required verification there. Do not send Cookies in tool arguments.",
+    stepZh: "请在抖音打开视频并确认访问权限，在平台完成必要验证；不要在工具参数中发送 Cookie。",
+  };
+  if (code.endsWith("LIMIT_EXCEEDED")) return {
+    category: "resource", messageEn: "The video operation exceeds its resource limits.",
+    messageZh: "视频操作超出资源限制。",
+    stepEn: "Use a shorter video, fewer frames, or fewer and shorter clips.",
+    stepZh: "请使用更短的视频、减少关键帧数量，或减少片段数量与时长。",
+  };
+  if (code === "CLIP_INVALID_RANGE") return {
+    category: "validation", messageEn: "The requested clip ranges are invalid.",
+    messageZh: "请求的视频片段时间范围无效。",
+    stepEn: "Use 1–5 clips within the video duration, 1–180 seconds each, totaling at most 600 seconds.",
+    stepZh: "请在视频时长内选择 1–5 个片段，每段 1–180 秒，总时长不超过 600 秒。",
+  };
+  if (code === "MEDIA_NO_AUDIO_TRACK" || code === "MEDIA_NO_VIDEO_TRACK" || code === "KEYFRAME_NO_VIDEO") return {
+    category: "content", messageEn: "The video does not contain the track required for this operation.",
+    messageZh: "媒体缺少此操作所需的音轨或视频轨。",
+    stepEn: "Choose media with an audio track for transcription or a video track for frames and clips.",
+    stepZh: "转写需要音轨，抽帧和剪辑需要视频轨；请选择含有所需轨道的媒体。",
+  };
+  if (code === "MEDIA_FAKE_IP_DNS") return {
+    category: "network", messageEn: "Media DNS resolution returned a proxy Fake-IP address.",
+    messageZh: "媒体域名解析返回了代理 Fake-IP 地址。",
+    stepEn: "Check the proxy DNS configuration and arrange public DNS resolution for the media hosts before retrying.",
+    stepZh: "请检查代理 DNS 配置，让媒体域名解析到公网地址后再重试。",
+  };
+  if (code.startsWith("DOUYIN_") || code === "PLATFORM_RESOLVE_FAILED") return {
+    category: "content", messageEn: "The platform video or its media could not be resolved.",
+    messageZh: "无法解析平台视频信息或媒体。",
+    stepEn: "Confirm the public video is accessible and retry its canonical link; page changes or unsupported media hosts may require an adapter update.",
+    stepZh: "请确认公开视频可访问，并使用规范链接重试；页面变化或不支持的媒体域名可能需要更新适配器。",
+  };
+  if (code === "MEDIA_DOWNLOAD_TIMEOUT" || code === "MEDIA_DOWNLOAD_FAILED") return {
+    category: "network", messageEn: "The video media download did not complete.",
+    messageZh: "视频媒体下载未完成。",
+    stepEn: "Check network connectivity and video access, then retry the video link.",
+    stepZh: "请检查网络连接与视频访问权限，然后用视频链接重试。",
+  };
+  return {
+    category: "runtime", messageEn: "The local video processing operation failed.",
+    messageZh: "本地视频处理失败。",
+    stepEn: "Check FFmpeg and ffprobe, confirm the source is playable, and retry with a shorter video or clip.",
+    stepZh: "请检查 FFmpeg 和 ffprobe，确认源视频可播放，并用更短的视频或片段重试。",
+  };
 }
 
 export function buildStructuredErrorPayload(
@@ -104,6 +183,26 @@ export function buildStructuredErrorPayload(
     });
   }
 
+  if (error instanceof PlatformError || error instanceof MediaError ||
+      error instanceof KeyframeError || error instanceof ClipError ||
+      error instanceof FfmpegUnavailableError) {
+    const code = error instanceof FfmpegUnavailableError ? "FFMPEG_UNAVAILABLE" : error.code;
+    const retryable = !(error instanceof FfmpegUnavailableError) && error.retryable;
+    const guidance = videoErrorGuidance(code);
+    return withCompatibilityNextSteps({
+      error: true,
+      code,
+      message: guidance.messageEn,
+      message_en: guidance.messageEn,
+      message_zh: guidance.messageZh,
+      category: guidance.category,
+      retryable,
+      user_action_required: !retryable,
+      next_steps_en: [guidance.stepEn],
+      next_steps_zh: [guidance.stepZh],
+    });
+  }
+
   if (error instanceof BilibiliAPIError && error.code === "COOKIE_EXPIRED") {
     return withCompatibilityNextSteps({
       error: true,
@@ -118,6 +217,18 @@ export function buildStructuredErrorPayload(
       next_steps_en: buildCredentialNextStepsEn(),
       next_steps_zh: buildCredentialNextStepsZh(),
       details: { api_code: "COOKIE_EXPIRED" },
+    });
+  }
+
+  if (error instanceof NoSubtitleError && context.platform === "douyin") {
+    return withCompatibilityNextSteps({
+      error: true, code: "SUBTITLE_UNAVAILABLE", category: "content",
+      message: "Native Douyin subtitles are unavailable; local transcription requires explicit permission.",
+      message_en: "Native Douyin subtitles are unavailable; local transcription requires explicit permission.",
+      message_zh: "当前不支持抖音原生字幕读取；本地转写需要明确许可。",
+      retryable: false, user_action_required: true,
+      next_steps_en: ["If local ASR is authorized, retry with fallback_to_asr: true or force_asr: true; configure a local transcriber first if needed."],
+      next_steps_zh: ["已获本地 ASR 授权时，请用 fallback_to_asr: true 或 force_asr: true 重试；必要时先配置本地转写程序。"],
     });
   }
 
@@ -159,12 +270,12 @@ export function buildStructuredErrorPayload(
         en: "Local ASR is not ready.",
         zh: "本地 ASR 尚未就绪。",
         stepsEn: [
-          "Run `bilibili-reader-mcp setup` outside the MCP call.",
-          "Inspect `bilibili-reader-mcp doctor --json` before retrying.",
+          "Run `video-reader-mcp setup` outside the MCP call.",
+          "Inspect `video-reader-mcp doctor --json` before retrying.",
         ],
         stepsZh: [
-          "请在 MCP 调用之外运行 `bilibili-reader-mcp setup`。",
-          "重试前请检查 `bilibili-reader-mcp doctor --json`。",
+          "请在 MCP 调用之外运行 `video-reader-mcp setup`。",
+          "重试前请检查 `video-reader-mcp doctor --json`。",
         ],
       },
       ASR_AUDIO_UNAVAILABLE: {

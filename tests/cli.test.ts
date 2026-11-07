@@ -222,7 +222,7 @@ describe("buildDoctorStatus", () => {
 
     const status = buildDoctorStatus();
 
-    expect(status.package_name).toBe("@llzijian/bilibili-reader-mcp");
+    expect(status.package_name).toBe("@llzijian/video-reader-mcp");
     expect(status.version).toBe(pkg.version);
     expect(status.runtime.node).toBe(process.version);
     expect(status.runtime.platform).toBe(os.platform());

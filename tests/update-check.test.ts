@@ -18,9 +18,16 @@ describe("package update guidance", () => {
   });
 
   it("returns source checkout config without suggesting an unpublished npm install", async () => {
-    const result = await buildPackageUpdateInfo(mockRegistryVersion("9.9.9"));
+    const fetchMock = mockRegistryVersion("9.9.9");
+    const result = await buildPackageUpdateInfo(fetchMock);
 
-    expect(result.package_name).toBe("@llzijian/bilibili-reader-mcp");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://registry.npmjs.org/%40llzijian%2Fvideo-reader-mcp/latest",
+      expect.objectContaining({ redirect: "manual" }),
+    );
+    expect(result.checked_registry).toBe("https://registry.npmjs.org/%40llzijian%2Fvideo-reader-mcp/latest");
+
+    expect(result.package_name).toBe("@llzijian/video-reader-mcp");
     expect(result.latest_version).toBe("9.9.9");
     expect(result.update_available).toBe(true);
     expect(result.recommended_mcp_config.command).toBe("node");
@@ -29,6 +36,25 @@ describe("package update guidance", () => {
     expect(result.update_commands.npx_config).toContain("cli.js");
     expect(result.notes_en.join(" ")).toContain("no npm package is published");
     expect(result.notes_zh.join(" ")).toContain("尚未发布 npm 包");
+  });
+
+  it("explains an unpublished package without suggesting installation or reporting an outage", async () => {
+    const result = await buildPackageUpdateInfo(
+      vi.fn(async () => new Response(null, { status: 404 })),
+    );
+
+    expect(result.latest_version).toBeNull();
+    expect(result.update_available).toBeNull();
+    expect(result.notes_en.join(" ")).toContain("not published on npm");
+    expect(result.notes_zh.join(" ")).toContain("请更新源码工作区");
+    expect(result.notes_en.join(" ")).not.toContain("Could not reach");
+    expect(JSON.stringify({
+      package_name: result.package_name,
+      checked_registry: result.checked_registry,
+      notes_en: result.notes_en,
+      notes_zh: result.notes_zh,
+      global_update: result.update_commands.global_update,
+    })).not.toMatch(/npm (?:install|view)|@xzxzzx|bilibili-reader-mcp/);
   });
 
   it("reports unknown registry state without throwing", async () => {

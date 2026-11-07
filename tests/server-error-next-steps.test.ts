@@ -117,11 +117,11 @@ describe("generic MCP error credential next_steps", () => {
       userActionRequired: true,
     });
     expect(payload.next_steps).toContain(
-      "Run: bilibili-reader-mcp config",
+      "Run: video-reader-mcp config",
     );
     expect(payload.next_steps_en).toEqual(payload.next_steps);
     expect(payload.next_steps_zh.join(" ")).toContain(
-      "bilibili-reader-mcp config",
+      "video-reader-mcp config",
     );
   });
 
@@ -149,7 +149,7 @@ describe("generic MCP error credential next_steps", () => {
       userActionRequired: true,
     });
     expect(payload.next_steps_en.join(" ")).toContain(
-      "bilibili-reader-mcp config",
+      "video-reader-mcp config",
     );
     expect(JSON.stringify(payload)).not.toContain("configured");
   });
@@ -178,7 +178,7 @@ describe("generic MCP error credential next_steps", () => {
       userActionRequired: true,
     });
     expect(payload.next_steps_en.join(" ")).toContain(
-      "bilibili-reader-mcp config",
+      "video-reader-mcp config",
     );
     expect(JSON.stringify(payload)).not.toContain("configured");
   });
@@ -232,7 +232,7 @@ describe("generic MCP error credential next_steps", () => {
       userActionRequired: true,
     });
     expect(payload.next_steps_en.join(" ")).toContain(
-      "bilibili-reader-mcp config",
+      "video-reader-mcp config",
     );
     expect(JSON.stringify(payload)).not.toMatch(/SESSDATA|bili_jct|DedeUserID/i);
   });

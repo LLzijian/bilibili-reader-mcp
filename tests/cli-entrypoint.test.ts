@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
@@ -13,6 +13,33 @@ beforeAll(async () => {
     platform: "node", format: "esm", packages: "external" });
 });
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+it("exposes the preferred CLI and preserves legacy bins with matching lockfile metadata", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
+  expect(pkg.name).toBe("@llzijian/video-reader-mcp");
+  expect(pkg.private).toBe(true);
+  expect(pkg.bin).toEqual({
+    "video-reader-mcp": "dist/cli.js",
+    "bilibili-reader-mcp": "dist/cli.js",
+    "bilibili-study-mcp": "dist/cli.js",
+    "bilibili-mcp": "dist/cli.js",
+  });
+  expect(lock.name).toBe(pkg.name);
+  expect(lock.packages[""].name).toBe(pkg.name);
+  expect(lock.packages[""].version).toBe(pkg.version);
+  expect(lock.packages[""].bin).toEqual(pkg.bin);
+  expect(lock.packages[""].dependencies).toEqual(pkg.dependencies);
+  expect(lock.packages[""].devDependencies).toEqual(pkg.devDependencies);
+});
+
+it("prints the current name and multi-platform capabilities in real CLI help", () => {
+  const output = execFileSync(process.execPath, [cli, "--help"], { encoding: "utf8" });
+  expect(output).toContain("Usage: video-reader-mcp");
+  expect(output).toContain("Video Reader MCP");
+  expect(output).toContain("多平台视频阅读器");
+  expect(output).not.toContain("bilibili-reader-mcp");
+});
 
 it.skipIf(process.platform === "win32")("runs the CLI through a symlink, as npm bin does", () => {
   const link = path.join(dir, "bilibili-mcp");

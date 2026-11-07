@@ -48,7 +48,7 @@ describe("credential MCP tools", () => {
 
     expect(response.isError).toBeUndefined();
     expect(payload.recommended_commands).toContain(
-      "bilibili-reader-mcp config",
+      "video-reader-mcp config",
     );
     expect(payload.security_notes_en.join(" ")).toContain(
       "Do not paste Cookie values",
@@ -70,11 +70,11 @@ describe("credential MCP tools", () => {
     expect(payload.source).toBe("none");
     expect(payload.logged_in).toBe(false);
     expect(payload.next_steps).toContain(
-      "Run: bilibili-reader-mcp config",
+      "Run: video-reader-mcp config",
     );
     expect(payload.next_steps_en).toEqual(payload.next_steps);
     expect(payload.next_steps_zh).toContain(
-      "运行：bilibili-reader-mcp config",
+      "运行：video-reader-mcp config",
     );
   });
 });
@@ -85,8 +85,8 @@ describe("credential next_steps in error payloads", () => {
     const payload = JSON.parse(response.content[0].text);
 
     expect(payload.recommended_commands).toEqual([
-      "bilibili-reader-mcp config",
-      "bilibili-reader-mcp check",
+      "video-reader-mcp config",
+      "video-reader-mcp check",
     ]);
     expect(payload.security_notes_zh).toContain(
       "不要把 Cookie 值粘贴到 MCP 客户端配置文件中。",
